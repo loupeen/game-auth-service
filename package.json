@@ -33,7 +33,7 @@
     "typescript": "~5.2.2"
   },
   "dependencies": {
-    "aws-cdk-lib": "2.95.1",
+    "aws-cdk-lib": "2.189.1",
     "constructs": "^10.0.0",
     "@aws-sdk/client-cognito-identity-provider": "^3.400.0",
     "@aws-sdk/client-dynamodb": "^3.400.0",
