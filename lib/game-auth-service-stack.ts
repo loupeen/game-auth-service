@@ -130,7 +130,7 @@ export class GameAuthServiceStack extends cdk.Stack {
       entry: 'lambda/auth/token-validation.ts',
       handler: 'handler',
       runtime: lambda.Runtime.NODEJS_18_X,
-      architecture: lambda.Architecture.ARM_64,
+      architecture: lambda.Architecture.X86_64,
       timeout: cdk.Duration.seconds(30),
       memorySize: environment === 'production' ? 1024 : 512,
       environment: {
@@ -149,7 +149,7 @@ export class GameAuthServiceStack extends cdk.Stack {
       entry: 'lambda/auth/user-registration.ts', 
       handler: 'handler',
       runtime: lambda.Runtime.NODEJS_18_X,
-      architecture: lambda.Architecture.ARM_64,
+      architecture: lambda.Architecture.X86_64,
       timeout: cdk.Duration.seconds(30),
       memorySize: environment === 'production' ? 1024 : 512,
       environment: {
