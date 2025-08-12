@@ -3,7 +3,6 @@ import { handler } from '../../lambda/auth/token-validation';
 
 // Mock AWS SDK
 jest.mock('@aws-sdk/client-dynamodb');
-jest.mock('@loupeen/shared-js-utils');
 
 describe('Token Validation Lambda', () => {
   const mockEvent: Partial<APIGatewayProxyEvent> = {
