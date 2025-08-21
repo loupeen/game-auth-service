@@ -122,6 +122,12 @@ export class JwtManagementConstruct extends Construct {
       architecture: lambda.Architecture.ARM_64, // Cost optimization
       timeout: cdk.Duration.seconds(10),
       memorySize: environment === 'production' ? 1024 : 512,
+      bundling: {
+        forceDockerBundling: false,
+        minify: true,
+        target: 'es2020',
+        keepNames: true,
+      },
       environment: {
         ENVIRONMENT: environment,
         PLAYER_USER_POOL_ID: playerUserPoolId,
@@ -145,6 +151,12 @@ export class JwtManagementConstruct extends Construct {
       architecture: lambda.Architecture.ARM_64,
       timeout: cdk.Duration.seconds(5), // Fast validation
       memorySize: environment === 'production' ? 1024 : 512,
+      bundling: {
+        forceDockerBundling: false,
+        minify: true,
+        target: 'es2020',
+        keepNames: true,
+      },
       environment: {
         ENVIRONMENT: environment,
         PLAYER_USER_POOL_ID: playerUserPoolId,
@@ -166,6 +178,12 @@ export class JwtManagementConstruct extends Construct {
       architecture: lambda.Architecture.ARM_64,
       timeout: cdk.Duration.seconds(10),
       memorySize: environment === 'production' ? 1024 : 512,
+      bundling: {
+        forceDockerBundling: false,
+        minify: true,
+        target: 'es2020',
+        keepNames: true,
+      },
       environment: {
         ENVIRONMENT: environment,
         PLAYER_USER_POOL_ID: playerUserPoolId,
@@ -189,6 +207,12 @@ export class JwtManagementConstruct extends Construct {
       architecture: lambda.Architecture.ARM_64,
       timeout: cdk.Duration.seconds(5),
       memorySize: 512,
+      bundling: {
+        forceDockerBundling: false,
+        minify: true,
+        target: 'es2020',
+        keepNames: true,
+      },
       environment: {
         ENVIRONMENT: environment,
         SESSIONS_TABLE_NAME: sessionsTable.tableName,

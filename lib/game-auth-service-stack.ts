@@ -146,6 +146,12 @@ export class GameAuthServiceStack extends cdk.Stack {
       architecture: lambda.Architecture.X86_64,
       timeout: cdk.Duration.seconds(30),
       memorySize: environment === 'production' ? 1024 : 512,
+      bundling: {
+        forceDockerBundling: false,
+        minify: true,
+        target: 'es2020',
+        keepNames: true,
+      },
       environment: {
         ENVIRONMENT: environment,
         SESSIONS_TABLE_NAME: this.sessionsTable.tableName,
@@ -165,6 +171,12 @@ export class GameAuthServiceStack extends cdk.Stack {
       architecture: lambda.Architecture.X86_64,
       timeout: cdk.Duration.seconds(30),
       memorySize: environment === 'production' ? 1024 : 512,
+      bundling: {
+        forceDockerBundling: false,
+        minify: true,
+        target: 'es2020',
+        keepNames: true,
+      },
       environment: {
         ENVIRONMENT: environment,
         PLAYER_USER_POOL_ID: this.playerUserPool.userPoolId,
