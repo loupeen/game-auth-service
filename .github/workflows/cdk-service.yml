@@ -29,14 +29,40 @@ permissions:
 jobs:
   test:
     name: Test & Validate
-    uses: loupeen/github-workflows/.github/workflows/npm-test.yml@main
-    with:
-      node-version: '18.x,20.x'
-      coverage-threshold: 65  # CDK services typically have lower coverage due to infrastructure code
-      run-lint: false  # Temporarily disabled due to ESLint config issues
-      run-typecheck: true
-    secrets:
-      github-token: ${{ secrets.GITHUB_TOKEN }}
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        node-version: ['18.x', '20.x']
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+          registry-url: 'https://npm.pkg.github.com'
+          cache: 'npm'
+          scope: '@loupeen'
+
+      - name: Configure NPM for GitHub Packages
+        run: echo "@loupeen:registry=https://npm.pkg.github.com" >> .npmrc
+        
+      - name: Install dependencies
+        run: npm ci --prefer-offline --no-audit
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Run type checking
+        run: npm run typecheck
+        continue-on-error: false
+
+      - name: Run tests with coverage
+        run: npm run test:coverage
+        env:
+          CI: true
+          NODE_ENV: test
 
   validate-infrastructure:
     name: Validate Infrastructure
