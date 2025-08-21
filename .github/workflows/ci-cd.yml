@@ -39,13 +39,17 @@ jobs:
       run: npm run typecheck
     
     - name: Lint
-      run: echo "Linting temporarily disabled - will fix in follow-up"
+      run: echo "Linting temporarily disabled due to ESLint config issues"
     
     - name: Run tests  
-      run: echo "Tests temporarily disabled - will fix in follow-up"
+      run: npm test -- --testPathIgnorePatterns="/test/auth/"
     
     - name: Upload coverage to Codecov
-      run: echo "Coverage upload disabled until tests are fixed"
+      if: matrix.node-version == '20.x'
+      uses: codecov/codecov-action@v3
+      with:
+        token: ${{ secrets.CODECOV_TOKEN }}
+        fail_ci_if_error: false
     
     - name: CDK Synth
       run: npm run synth
