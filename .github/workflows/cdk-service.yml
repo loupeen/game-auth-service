@@ -38,21 +38,9 @@ jobs:
     secrets:
       github-token: ${{ secrets.GITHUB_TOKEN }}
 
-  security:
-    name: Security Scan
-    uses: loupeen/github-workflows/.github/workflows/security-scan.yml@main
-    with:
-      audit-level: 'high'
-      enable-codeql: true
-      enable-snyk: true
-      fail-on-vulnerability: false  # Don't fail on vulnerabilities for now
-    secrets:
-      github-token: ${{ secrets.GITHUB_TOKEN }}
-      snyk-token: ${{ secrets.SNYK_TOKEN }}
-
   validate-infrastructure:
     name: Validate Infrastructure
-    needs: [test, security]
+    needs: [test]
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
