@@ -1,5 +1,5 @@
 import { APIGatewayProxyEvent } from 'aws-lambda';
-import { handler } from '../../lambda/auth/token-validation';
+import { handler } from '../../lambda/jwt/token-validation-enhanced';
 
 // Mock AWS SDK
 jest.mock('@aws-sdk/client-dynamodb');
