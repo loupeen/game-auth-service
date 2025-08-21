@@ -32,7 +32,7 @@ jobs:
     uses: loupeen/github-workflows/.github/workflows/npm-test.yml@main
     with:
       node-version: '18.x,20.x'
-      coverage-threshold: 65  # CDK services typically have lower coverage
+      coverage-threshold: 65  # CDK services typically have lower coverage due to infrastructure code
       run-lint: false  # Temporarily disabled due to ESLint config issues
       run-typecheck: true
     secrets:
