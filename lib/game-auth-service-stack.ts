@@ -5,6 +5,7 @@ import * as dynamodb from 'aws-cdk-lib/aws-dynamodb';
 import * as cognito from 'aws-cdk-lib/aws-cognito';
 import { Construct } from 'constructs';
 import { NodejsFunction } from 'aws-cdk-lib/aws-lambda-nodejs';
+import { JwtManagementConstruct } from './constructs/jwt-management-construct';
 
 export interface GameAuthServiceStackProps extends cdk.StackProps {
   environment: string;
@@ -15,6 +16,7 @@ export class GameAuthServiceStack extends cdk.Stack {
   public readonly adminUserPool: cognito.UserPool;
   public readonly sessionsTable: dynamodb.Table;
   public readonly authApi: apigateway.RestApi;
+  public readonly jwtManagement: JwtManagementConstruct;
 
   constructor(scope: Construct, id: string, props: GameAuthServiceStackProps) {
     super(scope, id, props);
@@ -106,6 +108,17 @@ export class GameAuthServiceStack extends cdk.Stack {
 
     // Basic Lambda functions
     this.createAuthLambdas(environment);
+
+    // JWT Management Construct
+    this.jwtManagement = new JwtManagementConstruct(this, 'JwtManagement', {
+      environment,
+      playerUserPoolId: this.playerUserPool.userPoolId,
+      adminUserPoolId: this.adminUserPool.userPoolId,
+      playerUserPoolArn: this.playerUserPool.userPoolArn,
+      adminUserPoolArn: this.adminUserPool.userPoolArn,
+      sessionsTable: this.sessionsTable,
+      api: this.authApi
+    });
 
     // Output important values
     new cdk.CfnOutput(this, 'PlayerUserPoolId', {

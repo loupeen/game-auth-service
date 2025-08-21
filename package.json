@@ -40,7 +40,8 @@
     "jsonwebtoken": "^9.0.2",
     "@types/jsonwebtoken": "^9.0.2",
     "aws-lambda": "^1.0.7",
-    "@types/aws-lambda": "^8.10.119"
+    "@types/aws-lambda": "^8.10.119",
+    "jwks-rsa": "^3.0.1"
   },
   "repository": {
     "type": "git",
