@@ -91,7 +91,7 @@ jobs:
       - name: CDK Synthesis & Validation
         run: |
           echo "🏗️ Synthesizing CDK infrastructure..."
-          npm run synth
+          JSII_SILENCE_WARNING_UNTESTED_NODE_VERSION=1 npm run synth
           echo "✅ JWT Management System infrastructure validated"
           echo "✅ 4 Lambda functions: token-generation, validation, refresh, revocation"
           echo "✅ 3 DynamoDB tables: refresh-tokens, rate-limits, revoked-tokens"
@@ -100,3 +100,20 @@ jobs:
           echo "🚀 Ready for deployment to AWS environments"
         env:
           NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  deploy-test:
+    name: Deploy to Test
+    needs: [validate-infrastructure]
+    uses: loupeen/github-workflows/.github/workflows/cdk-deploy.yml@main
+    with:
+      environment: test
+      aws-region: eu-north-1
+      stack-name: GameAuthService-test
+      require-approval: false
+      run-tests: false  # Already tested in previous stage
+      diff-before-deploy: true
+    secrets:
+      aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      aws-account-id: ${{ secrets.AWS_ACCOUNT_ID_TEST }}
+      github-token: ${{ secrets.GITHUB_TOKEN }}
