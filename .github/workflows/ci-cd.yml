@@ -156,6 +156,9 @@ jobs:
       (github.event_name == 'workflow_dispatch' && inputs.environment == 'test')
     runs-on: ubuntu-latest
     environment: test
+    permissions:
+      id-token: write
+      contents: read
     
     steps:
       - name: 🔧 Checkout Code
@@ -175,8 +178,8 @@ jobs:
       - name: ⚙️ Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID_TEST }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY_TEST }}
+          role-to-assume: arn:aws:iam::728427470046:role/GitHubActionsDeploymentRole
+          role-session-name: GitHubActions-GameAuthService-Test
           aws-region: 'eu-north-1'
 
       - name: 🚀 CDK Deploy to Test
@@ -194,6 +197,9 @@ jobs:
       (github.event_name == 'workflow_dispatch' && inputs.environment == 'qa')
     runs-on: ubuntu-latest
     environment: qa
+    permissions:
+      id-token: write
+      contents: read
     
     steps:
       - name: 🔧 Checkout Code
@@ -213,8 +219,8 @@ jobs:
       - name: ⚙️ Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID_QA }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY_QA }}
+          role-to-assume: arn:aws:iam::077029784291:role/GitHubActionsDeploymentRole
+          role-session-name: GitHubActions-GameAuthService-QA
           aws-region: 'us-east-1'
 
       - name: 🚀 CDK Deploy to QA
