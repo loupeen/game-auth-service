@@ -409,7 +409,7 @@ class EnhancedJWTCedarValidator {
     }
   }
 
-  private async buildEntitiesForAuthorization(request: any): Promise<any[]> {
+  private async buildEntitiesForAuthorization(_request: any): Promise<any[]> {
     // This would build the full entity structure for Cedar
     // For now, return empty array - will be enhanced as we build out entities
     return [];
@@ -520,7 +520,7 @@ let validatorService: EnhancedJWTCedarValidator;
 
 export const handler = async (
   event: APIGatewayProxyEvent,
-  context: Context
+  _context: Context
 ): Promise<APIGatewayProxyResult> => {
   console.log('Enhanced JWT-Cedar validation request:', JSON.stringify(event, null, 2));
 

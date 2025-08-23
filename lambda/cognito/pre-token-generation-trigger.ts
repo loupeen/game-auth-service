@@ -245,8 +245,8 @@ const enrichmentService = new CognitoTokenEnrichment();
 
 export const handler = async (
   event: PreTokenGenerationTriggerEvent,
-  context: Context,
-  callback: Callback
+  _context: Context,
+  _callback: Callback
 ): Promise<PreTokenGenerationTriggerEvent> => {
   console.log('Cognito Pre-Token Generation Trigger:', JSON.stringify(event, null, 2));
   

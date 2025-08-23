@@ -1,11 +1,9 @@
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import { 
   DynamoDBClient, 
-  GetItemCommand, 
   PutItemCommand, 
   UpdateItemCommand,
-  QueryCommand,
-  BatchWriteItemCommand
+  QueryCommand
 } from '@aws-sdk/client-dynamodb';
 import * as jwt from 'jsonwebtoken';
 import { randomBytes, createHash } from 'crypto';

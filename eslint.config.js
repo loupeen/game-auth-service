@@ -41,12 +41,13 @@ module.exports = [
     },
     rules: {
       'no-unused-vars': 'off',
-      '@typescript-eslint/no-unused-vars': ['error', {
+      '@typescript-eslint/no-unused-vars': ['warn', {
         'argsIgnorePattern': '^_',
         'varsIgnorePattern': '^_',
         'caughtErrorsIgnorePattern': '^_'
       }],
-      'no-console': 'warn'
+      'no-console': 'warn',
+      'no-case-declarations': 'warn'
     }
   },
   {

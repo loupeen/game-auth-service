@@ -3,8 +3,7 @@ import {
   DynamoDBClient, 
   PutItemCommand, 
   UpdateItemCommand,
-  QueryCommand,
-  BatchWriteItemCommand
+  QueryCommand
 } from '@aws-sdk/client-dynamodb';
 import * as jwt from 'jsonwebtoken';
 

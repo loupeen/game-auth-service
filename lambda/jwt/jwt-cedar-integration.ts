@@ -303,7 +303,7 @@ let jwtCedarService: JWTCedarIntegrationService;
 
 export const handler = async (
   event: APIGatewayProxyEvent,
-  context: Context
+  _context: Context
 ): Promise<APIGatewayProxyResult> => {
   console.log('JWT-Cedar Integration Request:', JSON.stringify(event, null, 2));
 

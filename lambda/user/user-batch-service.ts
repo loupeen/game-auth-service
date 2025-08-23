@@ -1,7 +1,7 @@
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
-import { DynamoDBClient, BatchWriteItemCommand, QueryCommand, TransactWriteItemsCommand } from '@aws-sdk/client-dynamodb';
+import { DynamoDBClient, QueryCommand, TransactWriteItemsCommand } from '@aws-sdk/client-dynamodb';
 import { marshall, unmarshall } from '@aws-sdk/util-dynamodb';
-import { CognitoIdentityProviderClient, ListUsersCommand, AdminUpdateUserAttributesCommand } from '@aws-sdk/client-cognito-identity-provider';
+import { CognitoIdentityProviderClient, ListUsersCommand } from '@aws-sdk/client-cognito-identity-provider';
 import { CloudWatchClient, PutMetricDataCommand } from '@aws-sdk/client-cloudwatch';
 
 interface BatchRequest {
@@ -28,7 +28,7 @@ interface BatchResult {
   processingTime: number;
 }
 
-interface UserMigration {
+interface _UserMigration {
   fromUserId: string;
   toUserId: string;
   preserveStats: boolean;
@@ -346,7 +346,7 @@ class UserBatchService {
           result.successful = 1;
           break;
 
-        case 'kick-inactive':
+        case 'kick-inactive': {
           const cutoffDate = Date.now() - (7 * 24 * 60 * 60 * 1000); // 7 days
           const inactiveMembers = members.filter(member => 
             (member.attributes.lastActive || 0) < cutoffDate
@@ -369,6 +369,7 @@ class UserBatchService {
             }
           }
           break;
+        }
       }
 
       result.processingTime = Date.now() - startTime;
@@ -435,12 +436,12 @@ class UserBatchService {
     return result.Items?.[0] ? unmarshall(result.Items[0]) : null;
   }
 
-  private async createUserEntity(userId: string, attributes: Record<string, any>) {
+  private async createUserEntity(_userId: string, _attributes: Record<string, any>) {
     // Implementation to create user entity
     // This would call the entity management service
   }
 
-  private async updateUserEntity(userId: string, updates: Record<string, any>) {
+  private async updateUserEntity(_userId: string, _updates: Record<string, any>) {
     // Implementation to update user entity
     // This would call the entity management service  
   }
@@ -475,7 +476,7 @@ class UserBatchService {
     return result.Items?.map(item => unmarshall(item)) || [];
   }
 
-  private async removeUserFromAlliance(userId: string) {
+  private async removeUserFromAlliance(_userId: string) {
     // Remove alliance from user entity
     // Implementation would update the user entity to remove alliance relationships
   }

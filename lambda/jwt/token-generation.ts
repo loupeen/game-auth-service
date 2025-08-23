@@ -1,8 +1,6 @@
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import { 
   CognitoIdentityProviderClient, 
-  InitiateAuthCommand,
-  GetUserCommand,
   AdminGetUserCommand
 } from '@aws-sdk/client-cognito-identity-provider';
 import { DynamoDBClient, PutItemCommand, UpdateItemCommand, QueryCommand } from '@aws-sdk/client-dynamodb';
