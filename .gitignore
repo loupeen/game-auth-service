@@ -50,10 +50,10 @@ cdk.context.json
 # Compiled JS files
 *.js
 *.d.ts
-\!jest.config.js
-\!eslint.config.js
-\!test/config/*.js
-\!.github/workflows/*.yml
+!jest.config.js
+!eslint.config.js
+!test/config/*.js
+!.github/workflows/*.yml
 
 # IDE
 .vscode/
