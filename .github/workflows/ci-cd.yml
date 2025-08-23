@@ -204,9 +204,7 @@ jobs:
       (github.ref == 'refs/heads/main' && github.event_name == 'push') ||
       (github.event_name == 'workflow_dispatch' && inputs.environment == 'qa')
     runs-on: ubuntu-latest
-    environment: 
-      name: qa
-      url: https://gameauth-qa.loupeen.com
+    environment: qa
     permissions:
       id-token: write
       contents: read
