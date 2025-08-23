@@ -12,7 +12,7 @@
 import { APIGatewayProxyEvent, APIGatewayProxyResult, Context } from 'aws-lambda';
 import { DynamoDBClient, QueryCommand, GetItemCommand } from '@aws-sdk/client-dynamodb';
 import { unmarshall } from '@aws-sdk/util-dynamodb';
-import { CloudWatchClient, PutMetricDataCommand } from '@aws-sdk/client-cloudwatch';
+import { CloudWatchClient, PutMetricDataCommand, StandardUnit } from '@aws-sdk/client-cloudwatch';
 import Redis from 'ioredis';
 import * as cedar from '@cedar-policy/cedar-wasm/nodejs';
 import { DEFAULT_CONTEXT } from './game-policies-schema';
@@ -102,7 +102,6 @@ export class EnhancedAuthorizationService {
       this.redis = new Redis(process.env.REDIS_ENDPOINT, {
         enableAutoPipelining: true,
         maxRetriesPerRequest: 2,
-        retryDelayOnFailover: 100,
         lazyConnect: true
       });
     }
@@ -162,7 +161,7 @@ export class EnhancedAuthorizationService {
       return {
         decision: 'DENY',
         determiningPolicies: [],
-        errors: [`Authorization error: ${error.message}`],
+        errors: [`Authorization error: ${error instanceof Error ? error.message : 'Unknown error'}`],
         latency,
         cached: false,
         evaluationContext: this.buildEvaluationContext(request)
@@ -223,20 +222,35 @@ export class EnhancedAuthorizationService {
       };
 
       // Evaluate with Cedar WASM
-      const result = cedar.isAuthorized(cedarRequest, policySet, entities);
-      
-      return {
-        decision: result.decision === 'Allow' ? 'ALLOW' : 'DENY',
-        determiningPolicies: result.diagnostics?.reason || [],
-        errors: result.diagnostics?.errors || []
+      const authCall = {
+        ...cedarRequest,
+        policies: policySet,
+        entities
       };
+      
+      const result = cedar.isAuthorized(authCall);
+      
+      // Check if the authorization was successful
+      if (result.type === 'success') {
+        return {
+          decision: result.response.decision === cedar.Decision.Allow ? 'ALLOW' : 'DENY',
+          determiningPolicies: result.response.diagnostics?.reason || [],
+          errors: []
+        };
+      } else {
+        return {
+          decision: 'DENY',
+          determiningPolicies: [],
+          errors: result.errors.map(e => e.message)
+        };
+      }
 
     } catch (error) {
       console.error('Cedar evaluation error:', error);
       return {
         decision: 'DENY',
         determiningPolicies: [],
-        errors: [`Cedar evaluation failed: ${error.message}`]
+        errors: [`Cedar evaluation failed: ${error instanceof Error ? error.message : 'Unknown error'}`]
       };
     }
   }
@@ -262,7 +276,7 @@ export class EnhancedAuthorizationService {
           return policies;
         }
       } catch (error) {
-        console.warn('Redis policy cache miss:', error.message);
+        console.warn('Redis policy cache miss:', error instanceof Error ? error.message : 'Unknown error');
       }
     }
 
@@ -309,7 +323,7 @@ export class EnhancedAuthorizationService {
           return attributes;
         }
       } catch (error) {
-        console.warn('Redis entity cache miss:', error.message);
+        console.warn('Redis entity cache miss:', error instanceof Error ? error.message : 'Unknown error');
       }
     }
 
@@ -385,7 +399,7 @@ export class EnhancedAuthorizationService {
         await this.redis.del(cacheKey);
       }
     } catch (error) {
-      console.warn('Redis cache get error:', error.message);
+      console.warn('Redis cache get error:', error instanceof Error ? error.message : 'Unknown error');
     }
 
     return null;
@@ -407,7 +421,7 @@ export class EnhancedAuthorizationService {
 
       await this.redis.setex(cacheKey, this.CACHE_TTL.AUTHORIZATION, JSON.stringify(entry));
     } catch (error) {
-      console.warn('Redis cache set error:', error.message);
+      console.warn('Redis cache set error:', error instanceof Error ? error.message : 'Unknown error');
     }
   }
 
@@ -450,7 +464,7 @@ export class EnhancedAuthorizationService {
         {
           MetricName: 'AuthorizationLatency',
           Value: latency,
-          Unit: 'Milliseconds',
+          Unit: StandardUnit.Milliseconds,
           Dimensions: [
             { Name: 'CacheType', Value: type },
             { Name: 'Environment', Value: process.env.ENVIRONMENT || 'unknown' }
@@ -459,7 +473,7 @@ export class EnhancedAuthorizationService {
         {
           MetricName: 'AuthorizationRequests',
           Value: 1,
-          Unit: 'Count',
+          Unit: StandardUnit.Count,
           Dimensions: [
             { Name: 'CacheType', Value: type },
             { Name: 'Environment', Value: process.env.ENVIRONMENT || 'unknown' }
@@ -472,7 +486,7 @@ export class EnhancedAuthorizationService {
         metrics.push({
           MetricName: 'SlowAuthorizations',
           Value: 1,
-          Unit: 'Count',
+          Unit: StandardUnit.Count,
           Dimensions: [
             { Name: 'Environment', Value: process.env.ENVIRONMENT || 'unknown' }
           ]
@@ -485,7 +499,7 @@ export class EnhancedAuthorizationService {
       }));
 
     } catch (error) {
-      console.warn('Failed to send metrics:', error.message);
+      console.warn('Failed to send metrics:', error instanceof Error ? error.message : 'Unknown error');
     }
   }
 
@@ -599,7 +613,7 @@ export const handler = async (event: APIGatewayProxyEvent, context: Context): Pr
       body: JSON.stringify({
         success: false,
         message: 'Internal server error',
-        error: error.message
+        error: error instanceof Error ? error.message : 'Unknown error'
       })
     };
   }
