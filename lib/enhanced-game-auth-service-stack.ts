@@ -73,8 +73,11 @@ export class EnhancedGameAuthServiceStack extends cdk.Stack {
       billingMode: this.config.dynamodb.billingMode === 'PAY_PER_REQUEST' 
         ? dynamodb.BillingMode.PAY_PER_REQUEST
         : dynamodb.BillingMode.PROVISIONED,
-      readCapacity: this.config.dynamodb.readCapacity,
-      writeCapacity: this.config.dynamodb.writeCapacity,
+      // Only set capacity for PROVISIONED billing mode
+      ...(this.config.dynamodb.billingMode === 'PROVISIONED' ? {
+        readCapacity: this.config.dynamodb.readCapacity,
+        writeCapacity: this.config.dynamodb.writeCapacity
+      } : {}),
       encryption: dynamodb.TableEncryption.AWS_MANAGED,
       pointInTimeRecovery: this.config.security.pointInTimeRecovery,
       removalPolicy: this.config.security.deletionProtection 
