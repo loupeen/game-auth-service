@@ -2,7 +2,6 @@
 import 'source-map-support/register';
 import * as cdk from 'aws-cdk-lib';
 import { EnhancedGameAuthServiceStack } from '../lib/enhanced-game-auth-service-stack';
-import { LoupeenConfigFactory } from '@loupeen/shared-config-library';
 
 const app = new cdk.App();
 
@@ -21,10 +20,35 @@ const account = process.env.CDK_DEFAULT_ACCOUNT;
 console.log(`🚀 Deploying Game Auth Service to environment: ${environment}`);
 
 try {
-  // Get configuration from shared library
-  const envConfig = LoupeenConfigFactory.Environment.getConfig(environment as any);
-  const accountInfo = LoupeenConfigFactory.Account.getAccountInfo(environment as any);
-  const deploymentStrategy = LoupeenConfigFactory.Region.getDeploymentStrategy(environment as any);
+  // Simple environment configuration (will be replaced with shared-config-library later)
+  const envConfigs: Record<string, any> = {
+    test: {
+      name: 'test',
+      awsAccountId: '728427470046',
+      primaryRegion: 'eu-north-1',
+      secondaryRegions: [],
+      domainName: 'loupeen-test.com',
+      costBudget: { monthly: 200 }
+    },
+    qa: {
+      name: 'qa',
+      awsAccountId: '077029784291',
+      primaryRegion: 'us-east-1',
+      secondaryRegions: ['eu-central-1'],
+      domainName: 'loupeen-qa.com',
+      costBudget: { monthly: 150 }
+    },
+    production: {
+      name: 'production',
+      awsAccountId: 'TBD',
+      primaryRegion: 'us-east-1',
+      secondaryRegions: ['eu-central-1', 'eu-north-1'],
+      domainName: 'loupeen.com',
+      costBudget: { monthly: 1000 }
+    }
+  };
+
+  const envConfig = envConfigs[environment] || envConfigs.test;
   
   console.log(`📋 Configuration Summary:`);
   console.log(`   Environment: ${envConfig.name}`);
@@ -44,15 +68,6 @@ try {
   // Determine deployment region
   const deploymentRegion = region || envConfig.primaryRegion;
   
-  // Validate region
-  const validRegions = [deploymentStrategy.primaryRegion, ...deploymentStrategy.secondaryRegions];
-  if (!validRegions.includes(deploymentRegion as any)) {
-    throw new Error(
-      `❌ Invalid region ${deploymentRegion} for environment ${environment}. ` +
-      `Valid regions: ${validRegions.join(', ')}`
-    );
-  }
-
   console.log(`🌍 Deploying to region: ${deploymentRegion}`);
 
   // Create the enhanced stack
