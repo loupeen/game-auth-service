@@ -213,11 +213,20 @@ export class EnhancedAuthorizationService {
         .map(p => p.policyContent)
         .join('\n\n');
 
-      // Build Cedar request
+      // Build Cedar request with proper EntityUidJson format
       const cedarRequest = {
-        principal: `${request.principal.entityType}::"${request.principal.entityId}"`,
-        action: `${request.action.actionType}::"${request.action.actionId}"`,
-        resource: `${request.resource.entityType}::"${request.resource.entityId}"`,
+        principal: {
+          type: request.principal.entityType,
+          id: request.principal.entityId
+        },
+        action: {
+          type: request.action.actionType,
+          id: request.action.actionId
+        },
+        resource: {
+          type: request.resource.entityType,
+          id: request.resource.entityId
+        },
         context
       };
 
@@ -233,7 +242,7 @@ export class EnhancedAuthorizationService {
       // Check if the authorization was successful
       if (result.type === 'success') {
         return {
-          decision: result.response.decision === cedar.Decision.Allow ? 'ALLOW' : 'DENY',
+          decision: result.response.decision === 'Allow' ? 'ALLOW' : 'DENY',
           determiningPolicies: result.response.diagnostics?.reason || [],
           errors: []
         };
