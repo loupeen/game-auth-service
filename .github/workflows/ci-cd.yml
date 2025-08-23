@@ -189,14 +189,19 @@ jobs:
         env:
           JSII_SILENCE_WARNING_UNTESTED_NODE_VERSION: 1
 
+  # QA DEPLOYMENT - REQUIRES MANUAL APPROVAL
+  # This job will pause and wait for approval through GitHub Environment Protection Rules
+  # Configure approvers in: Settings > Environments > qa > Protection rules
   deploy-qa:
-    name: Deploy to QA
+    name: Deploy to QA (Manual Approval Required)
     needs: [deploy-test, security-scan]
     if: |
       (github.ref == 'refs/heads/main' && github.event_name == 'push') ||
       (github.event_name == 'workflow_dispatch' && inputs.environment == 'qa')
     runs-on: ubuntu-latest
-    environment: qa
+    environment: 
+      name: qa
+      url: https://gameauth-qa.loupeen.com
     permissions:
       id-token: write
       contents: read
@@ -280,6 +285,9 @@ jobs:
        (github.event_name == 'workflow_dispatch' && inputs.deployment_type == 'integration-test'))
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    permissions:
+      id-token: write
+      contents: read
     
     strategy:
       matrix:
@@ -302,8 +310,8 @@ jobs:
       - name: ⚙️ Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID_TEST }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY_TEST }}
+          role-to-assume: arn:aws:iam::728427470046:role/GitHubActionsDeploymentRole
+          role-session-name: GitHubActions-GameAuthService-IntegrationTests
           aws-region: ${{ env.AWS_REGION_TEST }}
 
       - name: 🏥 API Health Check
@@ -345,6 +353,9 @@ jobs:
       (github.event_name == 'workflow_dispatch' && inputs.deployment_type == 'performance-test')
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    permissions:
+      id-token: write
+      contents: read
     
     steps:
       - name: 🔧 Checkout Code
@@ -362,8 +373,8 @@ jobs:
       - name: ⚙️ Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID_TEST }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY_TEST }}
+          role-to-assume: arn:aws:iam::728427470046:role/GitHubActionsDeploymentRole
+          role-session-name: GitHubActions-GameAuthService-PerformanceTests
           aws-region: ${{ env.AWS_REGION_TEST }}
 
       - name: 📈 Performance Benchmarks
