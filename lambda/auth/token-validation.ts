@@ -21,10 +21,13 @@ interface TokenValidationResponse {
 export const handler = async (
   event: APIGatewayProxyEvent
 ): Promise<APIGatewayProxyResult> => {
-  console.log('Token validation request received', { 
-    headers: event.headers,
-    path: event.path 
-  });
+  // Debug logging for development environments only
+  if (process.env.NODE_ENV !== 'production') {
+    console.log('Token validation request received', { 
+      headers: event.headers,
+      path: event.path 
+    });
+  }
 
   try {
     const body = JSON.parse(event.body || '{}') as TokenValidationRequest;
@@ -94,10 +97,13 @@ export const handler = async (
       };
     }
 
-    console.log('Token validation successful', { 
-      userId: decoded.userId,
-      playerId: decoded.playerId 
-    });
+    // Debug logging for development environments only
+    if (process.env.NODE_ENV !== 'production') {
+      console.log('Token validation successful', { 
+        userId: decoded.userId,
+        playerId: decoded.playerId 
+      });
+    }
 
     return {
       statusCode: 200,

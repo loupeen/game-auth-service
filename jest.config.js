@@ -4,7 +4,7 @@ module.exports = {
   roots: ['<rootDir>/test'],
   testMatch: ['**/*.test.ts'],
   transform: {
-    '^.+\\.tsx?$': ['ts-jest', {
+    '^.+\\.ts$': ['ts-jest', {
       useESM: false,
       tsconfig: {
         module: 'commonjs',
@@ -38,7 +38,9 @@ module.exports = {
   moduleFileExtensions: ['ts', 'tsx', 'js', 'jsx', 'json', 'node'],
   testTimeout: 30000,
   verbose: true,
-  // Explicitly disable Babel transformation  
+  clearMocks: true,
+  resetMocks: true,
+  restoreMocks: true,
   transformIgnorePatterns: [
     'node_modules/(?!(.*\\.mjs$))'
   ]

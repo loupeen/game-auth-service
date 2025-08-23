@@ -23,7 +23,10 @@ interface RegistrationResponse {
 export const handler = async (
   event: APIGatewayProxyEvent
 ): Promise<APIGatewayProxyResult> => {
-  console.log('User registration request received');
+  // Debug logging for development environments only
+  if (process.env.NODE_ENV !== 'production') {
+    console.log('User registration request received');
+  }
 
   try {
     const body = JSON.parse(event.body || '{}') as RegistrationRequest;
@@ -74,11 +77,14 @@ export const handler = async (
       }
     }));
 
-    console.log('User registration successful', { 
-      userId, 
-      playerId, 
-      email: email.replace(/(.{2}).*(@.*)/, '$1***$2')
-    });
+    // Debug logging for development environments only
+    if (process.env.NODE_ENV !== 'production') {
+      console.log('User registration successful', { 
+        userId, 
+        playerId, 
+        email: email.replace(/(.{2}).*(@.*)/, '$1***$2')
+      });
+    }
 
     return {
       statusCode: 201,

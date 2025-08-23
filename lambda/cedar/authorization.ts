@@ -360,7 +360,10 @@ export const handler = async (
   event: APIGatewayProxyEvent,
   _context: Context
 ): Promise<APIGatewayProxyResult> => {
-  console.log('Cedar Authorization Request:', JSON.stringify(event, null, 2));
+  // Debug logging for development environments only
+  if (process.env.NODE_ENV !== 'production') {
+    console.log('Cedar Authorization Request:', JSON.stringify(event, null, 2));
+  }
   
   if (!authService) {
     authService = new CedarAuthorizationService();

@@ -138,7 +138,9 @@ class UserEntityService {
 
       return profile;
     } catch (error) {
-      console.error('Error getting user profile:', error);
+      if (process.env.NODE_ENV !== 'production') {
+        console.error('Error getting user profile:', error);
+      }
       return null;
     }
   }
@@ -234,7 +236,9 @@ class UserEntityService {
       // Return updated profile
       return await this.getUserProfile(userId);
     } catch (error) {
-      console.error('Error updating user profile:', error);
+      if (process.env.NODE_ENV !== 'production') {
+        console.error('Error updating user profile:', error);
+      }
       return null;
     }
   }
@@ -286,7 +290,9 @@ class UserEntityService {
         return b.contribution - a.contribution;
       });
     } catch (error) {
-      console.error('Error getting alliance members:', error);
+      if (process.env.NODE_ENV !== 'production') {
+        console.error('Error getting alliance members:', error);
+      }
       return [];
     }
   }
@@ -322,7 +328,9 @@ class UserEntityService {
       await this.dynamodb.send(updateCommand);
       return true;
     } catch (error) {
-      console.error('Error joining alliance:', error);
+      if (process.env.NODE_ENV !== 'production') {
+        console.error('Error joining alliance:', error);
+      }
       return false;
     }
   }
@@ -355,7 +363,9 @@ class UserEntityService {
       await this.dynamodb.send(updateCommand);
       return true;
     } catch (error) {
-      console.error('Error leaving alliance:', error);
+      if (process.env.NODE_ENV !== 'production') {
+        console.error('Error leaving alliance:', error);
+      }
       return false;
     }
   }
@@ -476,7 +486,9 @@ export const handler = async (
     };
 
   } catch (error) {
-    console.error('User entity service error:', error);
+    if (process.env.NODE_ENV !== 'production') {
+      console.error('User entity service error:', error);
+    }
 
     return {
       statusCode: 400,

@@ -63,7 +63,10 @@ class CedarAPIGatewayAuthorizer {
 
   async authorize(event: APIGatewayTokenAuthorizerEvent | APIGatewayRequestAuthorizerEvent): Promise<APIGatewayAuthorizerResult> {
     try {
-      console.log('Cedar Authorizer Event:', JSON.stringify(event, null, 2));
+      // Debug logging for development environments only
+      if (process.env.NODE_ENV !== 'production') {
+        console.log('Cedar Authorizer Event:', JSON.stringify(event, null, 2));
+      }
 
       // Extract token from event
       const token = this.extractToken(event);
