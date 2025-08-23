@@ -51,6 +51,8 @@ cdk.context.json
 *.js
 *.d.ts
 \!jest.config.js
+\!eslint.config.js
+\!test/config/*.js
 \!.github/workflows/*.yml
 
 # IDE
