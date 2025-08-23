@@ -362,8 +362,8 @@ const syncService = new CognitoCedarEntitySync();
 
 export const handler = async (
   event: PostAuthenticationTriggerEvent,
-  context: Context,
-  callback: Callback
+  _context: Context,
+  _callback: Callback
 ): Promise<PostAuthenticationTriggerEvent> => {
   console.log('Cognito Post-Authentication Trigger:', JSON.stringify(event, null, 2));
   

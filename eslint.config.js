@@ -20,6 +20,10 @@ module.exports = [
         __dirname: 'readonly',
         __filename: 'readonly',
         console: 'readonly',
+        setTimeout: 'readonly',
+        setInterval: 'readonly',
+        clearTimeout: 'readonly',
+        clearInterval: 'readonly',
         // Jest globals
         describe: 'readonly',
         test: 'readonly',
@@ -37,8 +41,18 @@ module.exports = [
     },
     rules: {
       'no-unused-vars': 'off',
-      '@typescript-eslint/no-unused-vars': 'error',
+      '@typescript-eslint/no-unused-vars': ['error', {
+        'argsIgnorePattern': '^_',
+        'varsIgnorePattern': '^_',
+        'caughtErrorsIgnorePattern': '^_'
+      }],
       'no-console': 'warn'
+    }
+  },
+  {
+    files: ['bin/**/*.ts', 'scripts/**/*.ts'],
+    rules: {
+      'no-console': 'off' // Allow console statements in deployment and scripts
     }
   },
   {

@@ -68,7 +68,7 @@ class CedarPolicyManagementService {
     return policy;
   }
 
-  async updatePolicy(policyId: string, version: string, updates: Partial<PolicyRecord>, userId: string): Promise<PolicyRecord> {
+  async updatePolicy(policyId: string, version: string, updates: Partial<PolicyRecord>, _userId: string): Promise<PolicyRecord> {
     // If updating policy content, validate it
     if (updates.policyContent) {
       await this.validatePolicyContent(updates.policyContent);
@@ -362,7 +362,7 @@ let policyService: CedarPolicyManagementService;
 
 export const handler = async (
   event: APIGatewayProxyEvent,
-  context: Context
+  _context: Context
 ): Promise<APIGatewayProxyResult> => {
   console.log('Cedar Policy Management Request:', JSON.stringify(event, null, 2));
   

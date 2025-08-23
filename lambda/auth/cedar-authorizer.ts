@@ -358,7 +358,7 @@ let authorizer: CedarAPIGatewayAuthorizer;
 
 export const handler = async (
   event: APIGatewayTokenAuthorizerEvent | APIGatewayRequestAuthorizerEvent,
-  context: Context
+  _context: Context
 ): Promise<APIGatewayAuthorizerResult> => {
   if (!authorizer) {
     authorizer = new CedarAPIGatewayAuthorizer();

@@ -358,7 +358,7 @@ let authService: CedarAuthorizationService;
 
 export const handler = async (
   event: APIGatewayProxyEvent,
-  context: Context
+  _context: Context
 ): Promise<APIGatewayProxyResult> => {
   console.log('Cedar Authorization Request:', JSON.stringify(event, null, 2));
   

@@ -237,7 +237,7 @@ let entityService: CedarEntityManagementService;
 
 export const handler = async (
   event: APIGatewayProxyEvent,
-  context: Context
+  _context: Context
 ): Promise<APIGatewayProxyResult> => {
   console.log('Cedar Entity Management Request:', JSON.stringify(event, null, 2));
   
