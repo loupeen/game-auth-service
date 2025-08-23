@@ -120,14 +120,16 @@ declare global {
   }
 };
 
-// Environment validation
-const requiredEnvVars = [
-  'TEST_ENV'
-];
+// Environment validation - only warn in non-CI environments
+if (!process.env.CI) {
+  const requiredEnvVars = [
+    'TEST_ENV'
+  ];
 
-for (const envVar of requiredEnvVars) {
-  if (!process.env[envVar]) {
-    console.warn(`Warning: ${envVar} environment variable is not set`);
+  for (const envVar of requiredEnvVars) {
+    if (!process.env[envVar]) {
+      console.warn(`Warning: ${envVar} environment variable is not set`);
+    }
   }
 }
 
