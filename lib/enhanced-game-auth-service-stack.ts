@@ -3,6 +3,9 @@ import * as lambda from 'aws-cdk-lib/aws-lambda';
 import * as apigateway from 'aws-cdk-lib/aws-apigateway';
 import * as dynamodb from 'aws-cdk-lib/aws-dynamodb';
 import * as cognito from 'aws-cdk-lib/aws-cognito';
+import * as elasticache from 'aws-cdk-lib/aws-elasticache';
+import * as ec2 from 'aws-cdk-lib/aws-ec2';
+import * as iam from 'aws-cdk-lib/aws-iam';
 import { Construct } from 'constructs';
 import { NodejsFunction } from 'aws-cdk-lib/aws-lambda-nodejs';
 import { EnhancedJwtManagementConstruct } from './constructs/enhanced-jwt-management-construct';
@@ -28,9 +31,16 @@ export class EnhancedGameAuthServiceStack extends cdk.Stack {
   public playerUserPool!: cognito.UserPool;
   public adminUserPool!: cognito.UserPool;
   public sessionsTable!: dynamodb.Table;
+  public policyStoreTable!: dynamodb.Table;
+  public entityStoreTable!: dynamodb.Table;
   public authApi!: apigateway.RestApi;
   public jwtManagement!: EnhancedJwtManagementConstruct;
   public registrationFunction!: NodejsFunction;
+  public authorizationFunction!: NodejsFunction;
+  public policyLoaderFunction!: NodejsFunction;
+  public vpc!: ec2.Vpc;
+  public redisSubnetGroup!: elasticache.CfnSubnetGroup;
+  public redisCluster!: elasticache.CfnReplicationGroup;
   public readonly config: ReturnType<typeof getGameAuthConfig>;
 
   constructor(scope: Construct, id: string, props: EnhancedGameAuthServiceStackProps) {
@@ -44,14 +54,24 @@ export class EnhancedGameAuthServiceStack extends cdk.Stack {
     // Get comprehensive configuration
     this.config = getGameAuthConfig(environment, region);
 
-    // Create DynamoDB table for session storage
+    // Create VPC for Redis if caching is enabled
+    if (this.config.features.enableCaching) {
+      this.createVpcForCaching();
+      this.createRedisCache();
+    }
+
+    // Create DynamoDB tables
     this.createSessionsTable();
+    this.createCedarPolicyTables();
 
     // Create Cognito User Pools
     this.createUserPools();
 
     // Create user registration function
     this.createRegistrationFunction();
+
+    // Create Cedar authorization functions
+    this.createCedarFunctions();
 
     // Create API Gateway
     this.createApiGateway();
@@ -334,5 +354,272 @@ export class EnhancedGameAuthServiceStack extends cdk.Stack {
       }, null, 2),
       description: 'Deployment Configuration Summary'
     });
+  }
+
+  /**
+   * Create VPC for Redis caching
+   */
+  private createVpcForCaching(): void {
+    this.vpc = new ec2.Vpc(this, 'AuthCacheVpc', {
+      maxAzs: 2,
+      natGateways: this.config.environment === 'production' ? 2 : 1,
+      subnetConfiguration: [
+        {
+          cidrMask: 24,
+          name: 'PublicSubnet',
+          subnetType: ec2.SubnetType.PUBLIC,
+        },
+        {
+          cidrMask: 24,
+          name: 'PrivateSubnet',
+          subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS,
+        },
+        {
+          cidrMask: 26,
+          name: 'CacheSubnet',
+          subnetType: ec2.SubnetType.PRIVATE_ISOLATED,
+        }
+      ],
+      enableDnsHostnames: true,
+      enableDnsSupport: true
+    });
+
+    cdk.Tags.of(this.vpc).add('Purpose', 'GameAuthCaching');
+    cdk.Tags.of(this.vpc).add('Environment', this.config.environment);
+  }
+
+  /**
+   * Create Redis cache for authorization
+   */
+  private createRedisCache(): void {
+    // Create subnet group for Redis
+    this.redisSubnetGroup = new elasticache.CfnSubnetGroup(this, 'RedisSubnetGroup', {
+      description: 'Subnet group for Redis authorization cache',
+      subnetIds: this.vpc.isolatedSubnets.map(subnet => subnet.subnetId),
+      cacheSubnetGroupName: `${this.config.naming.prefix}-redis-subnet-group`
+    });
+
+    // Create security group for Redis
+    const redisSecurityGroup = new ec2.SecurityGroup(this, 'RedisSecurityGroup', {
+      vpc: this.vpc,
+      description: 'Security group for Redis authorization cache',
+      allowAllOutbound: false
+    });
+
+    // Allow Redis port access from private subnets
+    redisSecurityGroup.addIngressRule(
+      ec2.Peer.ipv4(this.vpc.vpcCidrBlock),
+      ec2.Port.tcp(6379),
+      'Redis access from VPC'
+    );
+
+    // Create Redis replication group for high availability
+    this.redisCluster = new elasticache.CfnReplicationGroup(this, 'RedisCluster', {
+      description: 'Redis cluster for game authorization caching',
+      replicationGroupId: `${this.config.naming.prefix}-auth-cache`,
+      
+      // Performance and sizing based on environment
+      nodeType: this.config.environment === 'production' ? 'cache.t4g.micro' : 'cache.t4g.micro',
+      numCacheClusters: this.config.environment === 'production' ? 2 : 1,
+      
+      // Configuration
+      cacheSubnetGroupName: this.redisSubnetGroup.cacheSubnetGroupName,
+      securityGroupIds: [redisSecurityGroup.securityGroupId],
+      port: 6379,
+      engine: 'redis',
+      engineVersion: '7.0',
+      
+      // Security
+      transitEncryptionEnabled: true,
+      atRestEncryptionEnabled: true,
+      
+      // Cost optimization
+      automaticFailoverEnabled: this.config.environment === 'production',
+      multiAzEnabled: this.config.environment === 'production',
+      
+      // Backup and maintenance
+      snapshotRetentionLimit: this.config.environment === 'production' ? 5 : 1,
+      snapshotWindow: '03:00-05:00',
+      preferredMaintenanceWindow: 'sun:05:00-sun:07:00'
+    });
+
+    this.redisCluster.addDependsOn(this.redisSubnetGroup);
+
+    // Add tags
+    cdk.Tags.of(this.redisCluster).add('Purpose', 'GameAuthorizationCache');
+    cdk.Tags.of(this.redisCluster).add('Environment', this.config.environment);
+  }
+
+  /**
+   * Create DynamoDB tables for Cedar policies and entities
+   */
+  private createCedarPolicyTables(): void {
+    // Policy store table
+    this.policyStoreTable = new dynamodb.Table(this, 'PolicyStoreTable', {
+      tableName: `${this.config.naming.prefix}-policy-store`,
+      partitionKey: {
+        name: 'policyId',
+        type: dynamodb.AttributeType.STRING
+      },
+      billingMode: this.config.dynamodb.billingMode === 'PAY_PER_REQUEST' 
+        ? dynamodb.BillingMode.PAY_PER_REQUEST
+        : dynamodb.BillingMode.PROVISIONED,
+      ...(this.config.dynamodb.billingMode === 'PROVISIONED' ? {
+        readCapacity: this.config.dynamodb.readCapacity,
+        writeCapacity: this.config.dynamodb.writeCapacity
+      } : {}),
+      encryption: dynamodb.TableEncryption.AWS_MANAGED,
+      pointInTimeRecovery: this.config.security.pointInTimeRecovery,
+      removalPolicy: this.config.security.deletionProtection 
+        ? cdk.RemovalPolicy.RETAIN 
+        : cdk.RemovalPolicy.DESTROY
+    });
+
+    // GSI for querying by category and type
+    this.policyStoreTable.addGlobalSecondaryIndex({
+      indexName: 'CategoryTypeIndex',
+      partitionKey: {
+        name: 'categoryTypeIndex',
+        type: dynamodb.AttributeType.STRING
+      },
+      sortKey: {
+        name: 'priority',
+        type: dynamodb.AttributeType.NUMBER
+      },
+      ...(this.config.dynamodb.billingMode === 'PROVISIONED' ? {
+        readCapacity: Math.floor(this.config.dynamodb.readCapacity! / 2),
+        writeCapacity: Math.floor(this.config.dynamodb.writeCapacity! / 2)
+      } : {})
+    });
+
+    // GSI for querying active policies
+    this.policyStoreTable.addGlobalSecondaryIndex({
+      indexName: 'StatusIndex',
+      partitionKey: {
+        name: 'statusIndex',
+        type: dynamodb.AttributeType.STRING
+      },
+      sortKey: {
+        name: 'priority',
+        type: dynamodb.AttributeType.NUMBER
+      },
+      ...(this.config.dynamodb.billingMode === 'PROVISIONED' ? {
+        readCapacity: Math.floor(this.config.dynamodb.readCapacity! / 2),
+        writeCapacity: Math.floor(this.config.dynamodb.writeCapacity! / 2)
+      } : {})
+    });
+
+    // Entity store table
+    this.entityStoreTable = new dynamodb.Table(this, 'EntityStoreTable', {
+      tableName: `${this.config.naming.prefix}-entity-store`,
+      partitionKey: {
+        name: 'entityType',
+        type: dynamodb.AttributeType.STRING
+      },
+      sortKey: {
+        name: 'entityId',
+        type: dynamodb.AttributeType.STRING
+      },
+      billingMode: this.config.dynamodb.billingMode === 'PAY_PER_REQUEST' 
+        ? dynamodb.BillingMode.PAY_PER_REQUEST
+        : dynamodb.BillingMode.PROVISIONED,
+      ...(this.config.dynamodb.billingMode === 'PROVISIONED' ? {
+        readCapacity: this.config.dynamodb.readCapacity,
+        writeCapacity: this.config.dynamodb.writeCapacity
+      } : {}),
+      encryption: dynamodb.TableEncryption.AWS_MANAGED,
+      pointInTimeRecovery: this.config.security.pointInTimeRecovery,
+      removalPolicy: this.config.security.deletionProtection 
+        ? cdk.RemovalPolicy.RETAIN 
+        : cdk.RemovalPolicy.DESTROY,
+      timeToLiveAttribute: 'expiresAt'
+    });
+
+    // GSI for entity lookups by owner
+    this.entityStoreTable.addGlobalSecondaryIndex({
+      indexName: 'OwnerIndex',
+      partitionKey: {
+        name: 'ownerId',
+        type: dynamodb.AttributeType.STRING
+      },
+      sortKey: {
+        name: 'entityType',
+        type: dynamodb.AttributeType.STRING
+      },
+      ...(this.config.dynamodb.billingMode === 'PROVISIONED' ? {
+        readCapacity: Math.floor(this.config.dynamodb.readCapacity! / 2),
+        writeCapacity: Math.floor(this.config.dynamodb.writeCapacity! / 2)
+      } : {})
+    });
+  }
+
+  /**
+   * Create Cedar authorization Lambda functions
+   */
+  private createCedarFunctions(): void {
+    const commonEnvironment = {
+      REGION: this.config.region,
+      ENVIRONMENT: this.config.environment,
+      POLICY_STORE_TABLE: this.policyStoreTable.tableName,
+      ENTITY_STORE_TABLE: this.entityStoreTable.tableName,
+      ENABLE_DETAILED_METRICS: this.config.features.enableDetailedMetrics ? 'true' : 'false',
+      ...(this.config.features.enableCaching && this.redisCluster ? {
+        REDIS_ENDPOINT: this.redisCluster.attrRedisEndpointAddress
+      } : {})
+    };
+
+    // Enhanced authorization service function
+    this.authorizationFunction = new NodejsFunction(this, 'EnhancedAuthorizationFunction', {
+      functionName: `${this.config.naming.prefix}-enhanced-authorization`,
+      entry: 'lambda/cedar/enhanced-authorization-service.ts',
+      handler: 'handler',
+      runtime: lambda.Runtime.NODEJS_18_X,
+      architecture: lambda.Architecture.ARM_64,
+      timeout: cdk.Duration.seconds(10),
+      memorySize: this.config.lambda.memorySize,
+      environment: commonEnvironment,
+      vpc: this.config.features.enableCaching ? this.vpc : undefined,
+      vpcSubnets: this.config.features.enableCaching ? {
+        subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS
+      } : undefined,
+      bundling: {
+        externalModules: ['@cedar-policy/cedar-wasm']
+      },
+      layers: [
+        // Cedar WASM layer would be added here
+      ]
+    });
+
+    // Policy loader function
+    this.policyLoaderFunction = new NodejsFunction(this, 'PolicyLoaderFunction', {
+      functionName: `${this.config.naming.prefix}-policy-loader`,
+      entry: 'lambda/cedar/basic-game-policy-loader.ts',
+      handler: 'handler',
+      runtime: lambda.Runtime.NODEJS_18_X,
+      architecture: lambda.Architecture.ARM_64,
+      timeout: cdk.Duration.minutes(5),
+      memorySize: 256,
+      environment: commonEnvironment,
+      bundling: {
+        externalModules: ['@cedar-policy/cedar-wasm']
+      }
+    });
+
+    // Grant DynamoDB permissions
+    this.policyStoreTable.grantReadWriteData(this.authorizationFunction);
+    this.policyStoreTable.grantReadWriteData(this.policyLoaderFunction);
+    this.entityStoreTable.grantReadWriteData(this.authorizationFunction);
+    this.entityStoreTable.grantReadData(this.policyLoaderFunction);
+
+    // Grant CloudWatch permissions for metrics
+    const cloudWatchPolicy = new iam.PolicyStatement({
+      actions: [
+        'cloudwatch:PutMetricData'
+      ],
+      resources: ['*'],
+      effect: iam.Effect.ALLOW
+    });
+
+    this.authorizationFunction.addToRolePolicy(cloudWatchPolicy);
   }
 }
