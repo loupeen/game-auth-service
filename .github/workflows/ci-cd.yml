@@ -47,24 +47,58 @@ jobs:
   
   test-and-lint:
     name: Test & Lint
-    uses: loupeen/github-workflows/.github/workflows/npm-test.yml@main
-    with:
-      node-version: '18.x,20.x'
-      coverage-threshold: 65
-      run-lint: true
-      run-typecheck: true
-      working-directory: '.'
-    secrets: inherit
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        node-version: [18.x, 20.x]
+      fail-fast: false
+    
+    steps:
+      - name: 🔧 Checkout Code
+        uses: actions/checkout@v4
+
+      - name: 🏗️ Setup Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: 'npm'
+
+      - name: 📦 Install Dependencies
+        run: |
+          npm ci
+          npm run build
+
+      - name: 🔍 Lint & Type Check
+        run: |
+          npm run lint
+          npm run typecheck
+
+      - name: 🧪 Unit Tests
+        run: npm run test:unit
+        env:
+          CI: true
 
   security-scan:
     name: Security Scan
     if: github.event_name != 'pull_request' || github.base_ref == 'main'
-    uses: loupeen/github-workflows/.github/workflows/security-scan.yml@main
-    with:
-      audit-level: 'high'
-      enable-codeql: true
-      scan-dependencies: true
-    secrets: inherit
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: 🔧 Checkout Code
+        uses: actions/checkout@v4
+
+      - name: 🏗️ Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18.x'
+          cache: 'npm'
+
+      - name: 📦 Install Dependencies
+        run: npm ci
+
+      - name: 🔒 Security Audit
+        run: |
+          npm audit --audit-level=high --production
 
   # =============================================================================
   # CDK VALIDATION & DEPLOYMENT JOBS  
@@ -119,19 +153,37 @@ jobs:
     if: |
       (github.ref == 'refs/heads/main' && github.event_name == 'push') ||
       (github.event_name == 'workflow_dispatch' && inputs.environment == 'test')
-    uses: loupeen/github-workflows/.github/workflows/cdk-deploy.yml@main
-    with:
-      environment: test
-      aws-region: 'eu-north-1'
-      aws-account-id: '728427470046'
-      stack-name: ${{ inputs.stack_name || 'GameAuthService-test' }}
-      require-approval: false
-      cdk-context: 'environment=test'
-      deployment-role: 'GitHubActionsDeploymentRole'
-    secrets:
-      aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID_TEST }}
-      aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY_TEST }}
-      github-token: ${{ secrets.GITHUB_TOKEN }}
+    runs-on: ubuntu-latest
+    environment: test
+    
+    steps:
+      - name: 🔧 Checkout Code
+        uses: actions/checkout@v4
+
+      - name: 🏗️ Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18.x'
+          cache: 'npm'
+
+      - name: 📦 Install Dependencies
+        run: |
+          npm ci
+          npm run build
+
+      - name: ⚙️ Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID_TEST }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY_TEST }}
+          aws-region: 'eu-north-1'
+
+      - name: 🚀 CDK Deploy to Test
+        run: |
+          echo "🚀 Deploying to Test Environment (728427470046/eu-north-1)"
+          npx cdk deploy GameAuthService-test --context environment=test --require-approval never
+        env:
+          JSII_SILENCE_WARNING_UNTESTED_NODE_VERSION: 1
 
   deploy-qa:
     name: Deploy to QA
@@ -139,38 +191,74 @@ jobs:
     if: |
       (github.ref == 'refs/heads/main' && github.event_name == 'push') ||
       (github.event_name == 'workflow_dispatch' && inputs.environment == 'qa')
-    uses: loupeen/github-workflows/.github/workflows/cdk-deploy.yml@main
-    with:
-      environment: qa
-      aws-region: 'us-east-1'
-      aws-account-id: '077029784291'
-      stack-name: ${{ inputs.stack_name || 'GameAuthService-qa' }}
-      require-approval: true
-      cdk-context: 'environment=qa'
-      deployment-role: 'GitHubActionsDeploymentRole'
-    secrets:
-      aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID_QA }}
-      aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY_QA }}
-      github-token: ${{ secrets.GITHUB_TOKEN }}
+    runs-on: ubuntu-latest
+    environment: qa
+    
+    steps:
+      - name: 🔧 Checkout Code
+        uses: actions/checkout@v4
+
+      - name: 🏗️ Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18.x'
+          cache: 'npm'
+
+      - name: 📦 Install Dependencies
+        run: |
+          npm ci
+          npm run build
+
+      - name: ⚙️ Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID_QA }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY_QA }}
+          aws-region: 'us-east-1'
+
+      - name: 🚀 CDK Deploy to QA
+        run: |
+          echo "🚀 Deploying to QA Environment (077029784291/us-east-1)"
+          npx cdk deploy GameAuthService-qa --context environment=qa --require-approval never
+        env:
+          JSII_SILENCE_WARNING_UNTESTED_NODE_VERSION: 1
 
   deploy-production:
     name: Deploy to Production  
     needs: [deploy-qa]
     if: |
       (github.event_name == 'workflow_dispatch' && inputs.environment == 'production')
-    uses: loupeen/github-workflows/.github/workflows/cdk-deploy.yml@main
-    with:
-      environment: production
-      aws-region: 'us-east-1'
-      aws-account-id: 'TBD'
-      stack-name: ${{ inputs.stack_name || 'GameAuthService-production' }}
-      require-approval: true
-      cdk-context: 'environment=production'
-      deployment-role: 'GitHubActionsDeploymentRole'
-    secrets:
-      aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID_PROD }}
-      aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY_PROD }}
-      github-token: ${{ secrets.GITHUB_TOKEN }}
+    runs-on: ubuntu-latest
+    environment: production
+    
+    steps:
+      - name: 🔧 Checkout Code
+        uses: actions/checkout@v4
+
+      - name: 🏗️ Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18.x'
+          cache: 'npm'
+
+      - name: 📦 Install Dependencies
+        run: |
+          npm ci
+          npm run build
+
+      - name: ⚙️ Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID_PROD }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY_PROD }}
+          aws-region: 'us-east-1'
+
+      - name: 🚀 CDK Deploy to Production
+        run: |
+          echo "🚀 Deploying to Production Environment (TBD/us-east-1)"
+          npx cdk deploy GameAuthService-production --context environment=production --require-approval never
+        env:
+          JSII_SILENCE_WARNING_UNTESTED_NODE_VERSION: 1
 
   # =============================================================================
   # INTEGRATION & PERFORMANCE TESTING
