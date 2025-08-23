@@ -144,7 +144,7 @@ export const handler = async (
     }
 
     // Mark old token as used
-    await markTokenAsUsed(decodedToken.tokenId);
+    await markTokenAsUsed(decodedToken.tokenId, storedToken.userId);
 
     // Generate new token pair
     const newTokens = await generateNewTokenPair(storedToken);
@@ -208,12 +208,13 @@ async function getStoredRefreshToken(tokenId: string): Promise<StoredRefreshToke
   }
 }
 
-async function markTokenAsUsed(tokenId: string): Promise<void> {
+async function markTokenAsUsed(tokenId: string, userId: string): Promise<void> {
   try {
     await dynamodb.send(new UpdateItemCommand({
       TableName: process.env.REFRESH_TOKENS_TABLE_NAME,
       Key: {
-        tokenId: { S: tokenId }
+        tokenId: { S: tokenId },
+        userId: { S: userId }
       },
       UpdateExpression: 'SET used = :true, usedAt = :now',
       ExpressionAttributeValues: {
@@ -364,7 +365,8 @@ async function generateNewTokenPair(oldToken: StoredRefreshToken): Promise<any> 
   await dynamodb.send(new UpdateItemCommand({
     TableName: process.env.REFRESH_TOKENS_TABLE_NAME,
     Key: {
-      tokenId: { S: oldToken.tokenId }
+      tokenId: { S: oldToken.tokenId },
+      userId: { S: oldToken.userId }
     },
     UpdateExpression: 'SET replacedBy = :newTokenId',
     ExpressionAttributeValues: {

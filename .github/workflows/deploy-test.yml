@@ -1,0 +1,245 @@
+name: Deploy to Test Environment
+
+on:
+  push:
+    branches: [ main, develop ]
+  workflow_dispatch:
+    inputs:
+      enable_monitoring:
+        description: 'Enable production monitoring'
+        required: false
+        default: 'false'
+        type: boolean
+
+env:
+  NODE_VERSION: '18'
+  AWS_REGION: 'eu-north-1'
+  AWS_ACCOUNT: '728427470046'
+  ENVIRONMENT: 'test'
+
+jobs:
+  lint-and-test:
+    name: Lint & Test
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    
+    steps:
+      - name: 🔧 Checkout Code
+        uses: actions/checkout@v4
+
+      - name: 🏗️ Setup Node.js ${{ env.NODE_VERSION }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: 📦 Install Dependencies
+        run: |
+          npm ci
+          npm run build
+
+      - name: 🔍 Lint & Type Check
+        run: |
+          npm run lint
+          npm run typecheck
+
+      - name: 🧪 Unit Tests
+        run: npm run test:unit
+        env:
+          CI: true
+
+  security-audit:
+    name: Security Audit
+    runs-on: ubuntu-latest
+    needs: lint-and-test
+    timeout-minutes: 5
+    
+    steps:
+      - name: 🔧 Checkout Code
+        uses: actions/checkout@v4
+
+      - name: 🏗️ Setup Node.js ${{ env.NODE_VERSION }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: 📦 Install Dependencies
+        run: npm ci
+
+      - name: 🔒 Security Audit
+        run: npm audit --audit-level=high --production
+
+  build-and-package:
+    name: Build & Package
+    runs-on: ubuntu-latest
+    needs: [lint-and-test, security-audit]
+    timeout-minutes: 10
+    
+    outputs:
+      build-success: ${{ steps.build.outputs.success }}
+    
+    steps:
+      - name: 🔧 Checkout Code
+        uses: actions/checkout@v4
+
+      - name: 🏗️ Setup Node.js ${{ env.NODE_VERSION }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: 📦 Install Dependencies
+        run: npm ci
+
+      - name: 🏗️ Build Project
+        id: build
+        run: |
+          npm run build
+          echo "success=true" >> $GITHUB_OUTPUT
+
+      - name: 📊 CDK Synthesis
+        run: |
+          JSII_SILENCE_WARNING_UNTESTED_NODE_VERSION=1 npx cdk synth \
+            --context environment=${{ env.ENVIRONMENT }}
+
+  deploy-to-test:
+    name: Deploy to Test
+    runs-on: ubuntu-latest
+    needs: build-and-package
+    timeout-minutes: 20
+    environment: test
+    
+    steps:
+      - name: 🔧 Checkout Code
+        uses: actions/checkout@v4
+
+      - name: 🏗️ Setup Node.js ${{ env.NODE_VERSION }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: 📦 Install Dependencies
+        run: |
+          npm ci
+          npm run build
+
+      - name: ⚙️ Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID_TEST }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY_TEST }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: 🏗️ CDK Bootstrap Check
+        run: |
+          # Check if CDK is bootstrapped
+          if ! aws cloudformation describe-stacks --stack-name CDKToolkit --region ${{ env.AWS_REGION }} > /dev/null 2>&1; then
+            echo "Bootstrapping CDK..."
+            JSII_SILENCE_WARNING_UNTESTED_NODE_VERSION=1 npx cdk bootstrap \
+              aws://${{ env.AWS_ACCOUNT }}/${{ env.AWS_REGION }} \
+              --context environment=${{ env.ENVIRONMENT }}
+          else
+            echo "CDK already bootstrapped"
+          fi
+
+      - name: 🚀 Deploy Main Stack
+        run: |
+          echo "Deploying Game Auth Service to test environment..."
+          JSII_SILENCE_WARNING_UNTESTED_NODE_VERSION=1 npx cdk deploy GameAuthService-test \
+            --context environment=${{ env.ENVIRONMENT }} \
+            --require-approval never \
+            --outputs-file deployment-outputs-test.json
+
+      - name: 🚀 Deploy Monitoring Stack
+        if: ${{ inputs.enable_monitoring == true }}
+        run: |
+          echo "Deploying monitoring stack..."
+          JSII_SILENCE_WARNING_UNTESTED_NODE_VERSION=1 npx cdk deploy GameAuthMonitoring-test \
+            --context environment=${{ env.ENVIRONMENT }} \
+            --context enableMonitoring=true \
+            --require-approval never
+
+      - name: ✅ Verify Deployment
+        run: |
+          if [ -f "deployment-outputs-test.json" ]; then
+            API_URL=$(jq -r '.["GameAuthService-test"].ApiUrl' deployment-outputs-test.json)
+            echo "API_URL=$API_URL" >> $GITHUB_ENV
+            
+            echo "✅ Deployment successful!"
+            echo "API URL: $API_URL"
+            
+            # Basic health check
+            sleep 15  # Allow services to warm up
+            if curl --max-time 10 --fail "$API_URL" > /dev/null 2>&1; then
+              echo "✅ API Gateway health check passed"
+            else
+              echo "⚠️ API Gateway health check failed (may need more time to warm up)"
+            fi
+          else
+            echo "❌ Deployment outputs not found"
+            exit 1
+          fi
+
+      - name: 📋 Upload Deployment Artifacts
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: deployment-outputs-test-${{ github.sha }}
+          path: |
+            deployment-outputs-test.json
+            cdk.out/
+          retention-days: 7
+
+  integration-tests:
+    name: Integration Tests
+    runs-on: ubuntu-latest
+    needs: deploy-to-test
+    timeout-minutes: 15
+    if: success()
+    
+    steps:
+      - name: 🔧 Checkout Code
+        uses: actions/checkout@v4
+
+      - name: 🏗️ Setup Node.js ${{ env.NODE_VERSION }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: 📦 Install Dependencies
+        run: |
+          npm ci
+          npm run build
+
+      - name: ⚙️ Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID_TEST }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY_TEST }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: 🧪 Run Integration Tests
+        run: |
+          echo "Running integration tests against test environment..."
+          TEST_ENV=test npm run test:integration
+        env:
+          CI: true
+
+  notify-success:
+    name: Notify Success
+    runs-on: ubuntu-latest
+    needs: [deploy-to-test, integration-tests]
+    if: success()
+    
+    steps:
+      - name: 🎉 Success Notification
+        run: |
+          echo "🎉 Test deployment completed successfully!"
+          echo "✅ All tests passed"
+          echo "🚀 Ready for QA deployment"
+          
+          # Update project board status if this completes an issue
+          # This would be done via GitHub CLI in real implementation

@@ -1,0 +1,231 @@
+name: Performance Tests
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+  schedule:
+    # Run performance tests nightly at 2 AM UTC
+    - cron: '0 2 * * *'
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment to test performance against'
+        required: true
+        default: 'test'
+        type: choice
+        options:
+          - test
+          - qa
+      duration:
+        description: 'Test duration in minutes'
+        required: false
+        default: '5'
+        type: choice
+        options:
+          - '1'
+          - '5' 
+          - '10'
+          - '30'
+      concurrent_users:
+        description: 'Number of concurrent virtual users'
+        required: false
+        default: '10'
+        type: choice
+        options:
+          - '5'
+          - '10'
+          - '25'
+          - '50'
+          - '100'
+
+env:
+  NODE_VERSION: '18'
+  AWS_REGION: 'eu-north-1'
+
+jobs:
+  performance-tests:
+    name: Performance Tests (${{ inputs.environment || 'test' }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    
+    steps:
+      - name: 🔧 Checkout Code
+        uses: actions/checkout@v4
+
+      - name: 🏗️ Setup Node.js ${{ env.NODE_VERSION }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: 📦 Install Dependencies
+        run: |
+          npm ci
+          npm run build
+
+      - name: ⚙️ Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID_TEST }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY_TEST }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: 📊 JWT-Cedar Performance Baseline
+        run: |
+          echo "🚀 Running JWT-Cedar Performance Baseline..."
+          
+          # Set environment-specific API URL
+          if [ "${{ inputs.environment || 'test' }}" = "test" ]; then
+            export API_URL="https://rofefpdvc2.execute-api.eu-north-1.amazonaws.com/prod"
+          else
+            export API_URL="https://k1lyuds5y5.execute-api.us-east-1.amazonaws.com/prod"
+          fi
+          
+          # Run performance baseline test
+          npm run test:performance -- test/performance/jwt-cedar-baseline.test.ts
+        env:
+          TEST_ENV: ${{ inputs.environment || 'test' }}
+          PERFORMANCE_DURATION_MINUTES: ${{ inputs.duration || '5' }}
+          PERFORMANCE_CONCURRENT_USERS: ${{ inputs.concurrent_users || '10' }}
+          CI: true
+
+      - name: 📈 Load Testing - Authentication Flow
+        run: |
+          echo "🔥 Running Authentication Load Tests..."
+          npm run test:performance -- test/performance/auth-load.test.ts
+        env:
+          TEST_ENV: ${{ inputs.environment || 'test' }}
+          LOAD_TEST_USERS: ${{ inputs.concurrent_users || '10' }}
+          LOAD_TEST_DURATION: ${{ inputs.duration || '5' }}
+          CI: true
+
+      - name: ⚡ Latency Testing - Critical Paths
+        run: |
+          echo "⚡ Testing Critical Path Latencies..."
+          npm run test:performance -- test/performance/latency-critical.test.ts
+        env:
+          TEST_ENV: ${{ inputs.environment || 'test' }}
+          LATENCY_SAMPLES: 100
+          CI: true
+
+      - name: 🎯 Resource Utilization Monitoring
+        run: |
+          echo "📊 Monitoring Resource Utilization..."
+          
+          # Monitor Lambda metrics during test
+          ./scripts/monitor-performance-metrics.sh \
+            --environment "${{ inputs.environment || 'test' }}" \
+            --duration "${{ inputs.duration || '5' }}"
+        continue-on-error: true
+
+      - name: 📊 Generate Performance Report
+        run: |
+          echo "📈 Generating Performance Report..."
+          npm run generate-performance-report
+        env:
+          TEST_ENV: ${{ inputs.environment || 'test' }}
+
+      - name: 📋 Performance Regression Check
+        run: |
+          echo "🔍 Checking for Performance Regressions..."
+          
+          # Compare with baseline performance
+          npm run check-performance-regression
+          
+          # Fail if critical regressions detected
+          if [ -f "performance-regression-detected" ]; then
+            echo "❌ Performance regression detected!"
+            echo "Check performance report for details."
+            exit 1
+          else
+            echo "✅ No significant performance regressions detected"
+          fi
+
+      - name: 📋 Upload Performance Results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: performance-results-${{ inputs.environment || 'test' }}-${{ github.sha }}
+          path: |
+            performance-results/
+            test-results/performance/
+          retention-days: 30
+
+      - name: 📊 Comment PR - Performance Results
+        if: github.event_name == 'pull_request' && always()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            let performanceReport = '## 📊 Performance Test Results\n\n';
+            
+            try {
+              if (fs.existsSync('performance-results/summary.json')) {
+                const summary = JSON.parse(fs.readFileSync('performance-results/summary.json', 'utf8'));
+                
+                performanceReport += `### 🎯 Environment: \`${{ inputs.environment || 'test' }}\`\n`;
+                performanceReport += `### ⏱️ Test Duration: ${{ inputs.duration || '5' }} minutes\n`;
+                performanceReport += `### 👥 Concurrent Users: ${{ inputs.concurrent_users || '10' }}\n\n`;
+                
+                performanceReport += '### Key Metrics\n';
+                performanceReport += `- 🚀 **Average Response Time**: ${summary.avgResponseTime}ms\n`;
+                performanceReport += `- ⚡ **95th Percentile**: ${summary.p95ResponseTime}ms\n`;
+                performanceReport += `- 🎯 **Success Rate**: ${summary.successRate}%\n`;
+                performanceReport += `- 💪 **Throughput**: ${summary.requestsPerSecond} req/sec\n\n`;
+                
+                performanceReport += '### Performance Thresholds\n';
+                performanceReport += summary.avgResponseTime < 500 ? '✅' : '⚠️';
+                performanceReport += ` Average Response Time: ${summary.avgResponseTime}ms (Target: <500ms)\n`;
+                
+                performanceReport += summary.p95ResponseTime < 1000 ? '✅' : '⚠️';
+                performanceReport += ` 95th Percentile: ${summary.p95ResponseTime}ms (Target: <1000ms)\n`;
+                
+                performanceReport += summary.successRate > 99 ? '✅' : '⚠️';
+                performanceReport += ` Success Rate: ${summary.successRate}% (Target: >99%)\n\n`;
+                
+                if (summary.regressions && summary.regressions.length > 0) {
+                  performanceReport += '### ⚠️ Performance Regressions Detected\n';
+                  summary.regressions.forEach(regression => {
+                    performanceReport += `- ${regression.metric}: ${regression.change}\n`;
+                  });
+                  performanceReport += '\n';
+                }
+                
+                performanceReport += '### 📈 Detailed Report\n';
+                performanceReport += 'See artifacts for comprehensive performance analysis and graphs.\n';
+              } else {
+                performanceReport += '⚠️ **Performance results not found** - Check workflow logs\n';
+              }
+            } catch (error) {
+              performanceReport += '❌ **Error reading performance results**: ' + error.message + '\n';
+            }
+            
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: performanceReport
+            });
+
+  performance-alerts:
+    name: Performance Monitoring Alerts
+    needs: performance-tests
+    runs-on: ubuntu-latest
+    if: always() && (github.event_name == 'schedule' || failure())
+    
+    steps:
+      - name: 🚨 Critical Performance Alert
+        if: needs.performance-tests.result == 'failure'
+        run: |
+          echo "🚨 CRITICAL: Performance tests failed!"
+          echo "Environment: ${{ inputs.environment || 'test' }}"
+          echo "This indicates potential performance regression or service degradation."
+          echo "Immediate investigation required."
+      
+      - name: ✅ Performance Tests Passed
+        if: needs.performance-tests.result == 'success'
+        run: |
+          echo "✅ Performance tests passed successfully!"
+          echo "System performance within acceptable thresholds."

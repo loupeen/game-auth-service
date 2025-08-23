@@ -27,6 +27,8 @@
     "node_modules",
     "cdk.out",
     "dist",
-    "coverage"
+    "coverage",
+    "test",
+    "test-deployment"
   ]
 }

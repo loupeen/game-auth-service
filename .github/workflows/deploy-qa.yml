@@ -1,0 +1,306 @@
+name: Deploy to QA Environment
+
+on:
+  workflow_dispatch:
+    inputs:
+      enable_monitoring:
+        description: 'Enable production monitoring'
+        required: false
+        default: 'true'
+        type: boolean
+      source_environment:
+        description: 'Source environment (must be successfully deployed)'
+        required: true
+        default: 'test'
+        type: choice
+        options:
+          - test
+  workflow_run:
+    workflows: ["Deploy to Test Environment"]
+    types:
+      - completed
+    branches: [ main ]
+
+env:
+  NODE_VERSION: '18'
+  AWS_REGION: 'us-east-1'
+  AWS_ACCOUNT: '077029784291'
+  ENVIRONMENT: 'qa'
+
+jobs:
+  pre-deployment-checks:
+    name: Pre-Deployment Checks
+    runs-on: ubuntu-latest
+    if: ${{ github.event.workflow_run.conclusion == 'success' || github.event_name == 'workflow_dispatch' }}
+    timeout-minutes: 5
+    
+    outputs:
+      ready-for-deployment: ${{ steps.check.outputs.ready }}
+    
+    steps:
+      - name: 🔧 Checkout Code
+        uses: actions/checkout@v4
+
+      - name: 🔍 Pre-Deployment Validation
+        id: check
+        run: |
+          echo "🔍 Running pre-deployment checks for QA..."
+          
+          # Verify test environment deployment was successful
+          if [ "${{ github.event_name }}" = "workflow_run" ]; then
+            if [ "${{ github.event.workflow_run.conclusion }}" = "success" ]; then
+              echo "✅ Test deployment completed successfully"
+              echo "ready=true" >> $GITHUB_OUTPUT
+            else
+              echo "❌ Test deployment failed"
+              echo "ready=false" >> $GITHUB_OUTPUT
+              exit 1
+            fi
+          else
+            echo "✅ Manual deployment requested"
+            echo "ready=true" >> $GITHUB_OUTPUT
+          fi
+
+  deploy-to-qa:
+    name: Deploy to QA
+    runs-on: ubuntu-latest
+    needs: pre-deployment-checks
+    if: needs.pre-deployment-checks.outputs.ready-for-deployment == 'true'
+    timeout-minutes: 25
+    environment: qa
+    
+    steps:
+      - name: 🔧 Checkout Code
+        uses: actions/checkout@v4
+
+      - name: 🏗️ Setup Node.js ${{ env.NODE_VERSION }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: 📦 Install Dependencies
+        run: |
+          npm ci
+          npm run build
+
+      - name: ⚙️ Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID_QA }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY_QA }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: 🔍 Validate AWS Access
+        run: |
+          CALLER_IDENTITY=$(aws sts get-caller-identity)
+          ACCOUNT_ID=$(echo $CALLER_IDENTITY | jq -r '.Account')
+          
+          if [ "$ACCOUNT_ID" != "${{ env.AWS_ACCOUNT }}" ]; then
+            echo "❌ Account mismatch. Expected: ${{ env.AWS_ACCOUNT }}, Got: $ACCOUNT_ID"
+            exit 1
+          fi
+          
+          echo "✅ AWS account access validated: $ACCOUNT_ID"
+
+      - name: 🏗️ CDK Bootstrap Check
+        run: |
+          if ! aws cloudformation describe-stacks --stack-name CDKToolkit --region ${{ env.AWS_REGION }} > /dev/null 2>&1; then
+            echo "Bootstrapping CDK for QA environment..."
+            JSII_SILENCE_WARNING_UNTESTED_NODE_VERSION=1 npx cdk bootstrap \
+              aws://${{ env.AWS_ACCOUNT }}/${{ env.AWS_REGION }} \
+              --context environment=${{ env.ENVIRONMENT }}
+          else
+            echo "CDK already bootstrapped"
+          fi
+
+      - name: 📊 CDK Diff Analysis
+        run: |
+          echo "Analyzing changes for QA deployment..."
+          JSII_SILENCE_WARNING_UNTESTED_NODE_VERSION=1 npx cdk diff \
+            --context environment=${{ env.ENVIRONMENT }} || true
+
+      - name: 🚀 Deploy Main Stack
+        run: |
+          echo "Deploying Game Auth Service to QA environment..."
+          JSII_SILENCE_WARNING_UNTESTED_NODE_VERSION=1 npx cdk deploy GameAuthService-qa \
+            --context environment=${{ env.ENVIRONMENT }} \
+            --require-approval never \
+            --outputs-file deployment-outputs-qa.json \
+            --progress events
+
+      - name: 🚀 Deploy Monitoring Stack
+        if: ${{ inputs.enable_monitoring != false }}
+        run: |
+          echo "Deploying monitoring stack to QA..."
+          JSII_SILENCE_WARNING_UNTESTED_NODE_VERSION=1 npx cdk deploy GameAuthMonitoring-qa \
+            --context environment=${{ env.ENVIRONMENT }} \
+            --context enableMonitoring=true \
+            --require-approval never \
+            --progress events
+
+      - name: ✅ Verify Deployment
+        run: |
+          if [ -f "deployment-outputs-qa.json" ]; then
+            API_URL=$(jq -r '.["GameAuthService-qa"].ApiUrl' deployment-outputs-qa.json)
+            USER_POOL_ID=$(jq -r '.["GameAuthService-qa"].PlayerUserPoolId' deployment-outputs-qa.json)
+            
+            echo "API_URL=$API_URL" >> $GITHUB_ENV
+            echo "USER_POOL_ID=$USER_POOL_ID" >> $GITHUB_ENV
+            
+            echo "✅ QA deployment successful!"
+            echo "API URL: $API_URL"
+            echo "User Pool ID: $USER_POOL_ID"
+            
+            # Extended health check for QA
+            echo "Performing comprehensive health check..."
+            sleep 30  # Allow services to fully initialize
+            
+            # Test API Gateway
+            if curl --max-time 15 --fail "$API_URL" > /dev/null 2>&1; then
+              echo "✅ API Gateway health check passed"
+            else
+              echo "❌ API Gateway health check failed"
+              exit 1
+            fi
+            
+            # Verify Lambda functions are active
+            aws lambda list-functions --query 'Functions[?contains(FunctionName, `GameAuthService-qa`)].State' --output text | grep -v "Pending\|Inactive" || {
+              echo "❌ Some Lambda functions are not active"
+              exit 1
+            }
+            
+            echo "✅ All health checks passed"
+          else
+            echo "❌ Deployment outputs not found"
+            exit 1
+          fi
+
+      - name: 📋 Upload Deployment Artifacts
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: deployment-outputs-qa-${{ github.sha }}
+          path: |
+            deployment-outputs-qa.json
+            cdk.out/
+          retention-days: 30
+
+  qa-integration-tests:
+    name: QA Integration Tests
+    runs-on: ubuntu-latest
+    needs: deploy-to-qa
+    timeout-minutes: 20
+    
+    steps:
+      - name: 🔧 Checkout Code
+        uses: actions/checkout@v4
+
+      - name: 🏗️ Setup Node.js ${{ env.NODE_VERSION }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: 📦 Install Dependencies
+        run: |
+          npm ci
+          npm run build
+
+      - name: ⚙️ Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID_QA }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY_QA }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: 🧪 Run QA Integration Tests
+        run: |
+          echo "Running comprehensive integration tests against QA environment..."
+          TEST_ENV=qa npm run test:integration -- --testTimeout=120000
+        env:
+          CI: true
+
+      - name: 📊 Performance Validation
+        run: |
+          echo "Running performance validation tests..."
+          TEST_ENV=qa npm run test:performance || echo "Performance tests completed with warnings"
+        env:
+          CI: true
+        continue-on-error: true
+
+  qa-smoke-tests:
+    name: QA Smoke Tests
+    runs-on: ubuntu-latest
+    needs: [deploy-to-qa, qa-integration-tests]
+    timeout-minutes: 10
+    
+    steps:
+      - name: 🔧 Checkout Code
+        uses: actions/checkout@v4
+
+      - name: ⚙️ Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID_QA }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY_QA }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: 🔥 Smoke Test - Critical Paths
+        run: |
+          echo "Running smoke tests for critical authentication paths..."
+          
+          # Download deployment outputs
+          API_URL="https://k1lyuds5y5.execute-api.us-east-1.amazonaws.com/prod"
+          
+          # Test 1: Basic API health
+          if curl --max-time 10 --fail "$API_URL" > /dev/null 2>&1; then
+            echo "✅ Basic API health check passed"
+          else
+            echo "❌ Basic API health check failed"
+            exit 1
+          fi
+          
+          # Test 2: JWT validation endpoint
+          RESPONSE=$(curl -s -w "%{http_code}" -X POST "$API_URL/enhanced-validate-jwt-cedar" \
+            -H "Content-Type: application/json" \
+            -d '{"token":"invalid.token"}' || echo "000")
+          
+          HTTP_CODE="${RESPONSE: -3}"
+          if [ "$HTTP_CODE" = "400" ] || [ "$HTTP_CODE" = "401" ]; then
+            echo "✅ JWT validation endpoint working (correctly rejected invalid token)"
+          else
+            echo "❌ JWT validation endpoint issue (HTTP: $HTTP_CODE)"
+            exit 1
+          fi
+          
+          echo "✅ All smoke tests passed"
+
+  notify-qa-success:
+    name: Notify QA Success
+    runs-on: ubuntu-latest
+    needs: [deploy-to-qa, qa-integration-tests, qa-smoke-tests]
+    if: success()
+    
+    steps:
+      - name: 🎉 QA Deployment Success
+        run: |
+          echo "🎉 QA deployment completed successfully!"
+          echo "✅ All integration tests passed"
+          echo "✅ Smoke tests completed"
+          echo "🚀 QA environment ready for testing"
+          echo "📊 Monitoring enabled: ${{ inputs.enable_monitoring }}"
+
+  notify-qa-failure:
+    name: Notify QA Failure
+    runs-on: ubuntu-latest
+    needs: [deploy-to-qa, qa-integration-tests, qa-smoke-tests]
+    if: failure()
+    
+    steps:
+      - name: 🚨 QA Deployment Failed
+        run: |
+          echo "🚨 QA deployment failed!"
+          echo "❌ Check logs for deployment issues"
+          echo "🔍 Review integration test results"
+          echo "⚠️ QA environment may be in inconsistent state"

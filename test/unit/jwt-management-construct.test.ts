@@ -2,7 +2,7 @@ import * as cdk from 'aws-cdk-lib';
 import { Template, Match } from 'aws-cdk-lib/assertions';
 import * as dynamodb from 'aws-cdk-lib/aws-dynamodb';
 import * as apigateway from 'aws-cdk-lib/aws-apigateway';
-import { JwtManagementConstruct } from '../lib/constructs/jwt-management-construct';
+import { JwtManagementConstruct } from '../../lib/constructs/jwt-management-construct';
 
 describe('JwtManagementConstruct', () => {
   let app: cdk.App;

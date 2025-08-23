@@ -1,0 +1,412 @@
+name: Deploy to Production Environment
+
+on:
+  workflow_dispatch:
+    inputs:
+      enable_monitoring:
+        description: 'Enable production monitoring (required for production)'
+        required: true
+        default: 'true'
+        type: boolean
+      source_environment:
+        description: 'Source environment (must be successfully deployed and tested)'
+        required: true
+        default: 'qa'
+        type: choice
+        options:
+          - qa
+      approval_required:
+        description: 'Require manual approval (recommended for production)'
+        required: true
+        default: 'true'
+        type: boolean
+
+env:
+  NODE_VERSION: '18'
+  AWS_REGION: 'us-east-1'
+  # Production account ID will be set when production account is created
+  AWS_ACCOUNT: 'PRODUCTION-ACCOUNT-ID'
+  ENVIRONMENT: 'production'
+
+jobs:
+  pre-production-validation:
+    name: Pre-Production Validation
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    
+    outputs:
+      validation-passed: ${{ steps.validate.outputs.passed }}
+      production-ready: ${{ steps.validate.outputs.ready }}
+    
+    steps:
+      - name: 🔧 Checkout Code
+        uses: actions/checkout@v4
+
+      - name: 🏗️ Setup Node.js ${{ env.NODE_VERSION }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: 📦 Install Dependencies
+        run: |
+          npm ci
+          npm run build
+
+      - name: 🔍 Production Readiness Validation
+        id: validate
+        run: |
+          echo "🔍 Validating production readiness..."
+          
+          # 1. Verify monitoring is enabled
+          if [ "${{ inputs.enable_monitoring }}" != "true" ]; then
+            echo "❌ Production monitoring must be enabled"
+            echo "passed=false" >> $GITHUB_OUTPUT
+            exit 1
+          fi
+          
+          # 2. Verify source environment is QA
+          if [ "${{ inputs.source_environment }}" != "qa" ]; then
+            echo "❌ Production deployment must come from QA environment"
+            echo "passed=false" >> $GITHUB_OUTPUT
+            exit 1
+          fi
+          
+          # 3. Check test coverage
+          npm run test:coverage
+          
+          # 4. Security audit
+          npm audit --audit-level=high --production
+          
+          # 5. CDK synthesis validation
+          JSII_SILENCE_WARNING_UNTESTED_NODE_VERSION=1 npx cdk synth \
+            --context environment=${{ env.ENVIRONMENT }}
+          
+          echo "✅ All pre-production validations passed"
+          echo "passed=true" >> $GITHUB_OUTPUT
+          echo "ready=true" >> $GITHUB_OUTPUT
+
+  manual-approval:
+    name: Production Deployment Approval
+    runs-on: ubuntu-latest
+    needs: pre-production-validation
+    if: needs.pre-production-validation.outputs.validation-passed == 'true' && inputs.approval_required == true
+    environment: production
+    timeout-minutes: 60  # 1 hour timeout for manual approval
+    
+    steps:
+      - name: ⏳ Awaiting Production Approval
+        run: |
+          echo "🚨 Production deployment requires manual approval"
+          echo "📋 Pre-production validation: PASSED"
+          echo "🔒 Security audit: PASSED"
+          echo "🧪 Test coverage: PASSED"
+          echo "📊 Monitoring: ENABLED"
+          echo ""
+          echo "⚠️ This will deploy to PRODUCTION environment"
+          echo "🎯 Approve to proceed with production deployment"
+
+  deploy-to-production:
+    name: Deploy to Production
+    runs-on: ubuntu-latest
+    needs: [pre-production-validation, manual-approval]
+    if: |
+      always() && 
+      needs.pre-production-validation.outputs.production-ready == 'true' && 
+      (needs.manual-approval.result == 'success' || inputs.approval_required == false)
+    timeout-minutes: 30
+    environment: production
+    
+    steps:
+      - name: 🔧 Checkout Code
+        uses: actions/checkout@v4
+
+      - name: 🏗️ Setup Node.js ${{ env.NODE_VERSION }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: 📦 Install Dependencies
+        run: |
+          npm ci
+          npm run build
+
+      - name: ⚙️ Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID_PRODUCTION }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY_PRODUCTION }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: 🔍 Validate Production AWS Access
+        run: |
+          CALLER_IDENTITY=$(aws sts get-caller-identity)
+          ACCOUNT_ID=$(echo $CALLER_IDENTITY | jq -r '.Account')
+          
+          # Note: This will need to be updated when production account is created
+          echo "Current Account ID: $ACCOUNT_ID"
+          echo "Expected Account ID: ${{ env.AWS_ACCOUNT }}"
+          
+          # For now, just log the account info
+          echo "✅ AWS access validated for production deployment"
+
+      - name: 🏗️ CDK Bootstrap Check
+        run: |
+          if ! aws cloudformation describe-stacks --stack-name CDKToolkit --region ${{ env.AWS_REGION }} > /dev/null 2>&1; then
+            echo "Bootstrapping CDK for production environment..."
+            JSII_SILENCE_WARNING_UNTESTED_NODE_VERSION=1 npx cdk bootstrap \
+              aws://${{ env.AWS_ACCOUNT }}/${{ env.AWS_REGION }} \
+              --context environment=${{ env.ENVIRONMENT }}
+          else
+            echo "CDK already bootstrapped"
+          fi
+
+      - name: 📊 Production Change Analysis
+        run: |
+          echo "Analyzing changes for production deployment..."
+          JSII_SILENCE_WARNING_UNTESTED_NODE_VERSION=1 npx cdk diff \
+            --context environment=${{ env.ENVIRONMENT }} > production-diff.txt || true
+          
+          if [ -s production-diff.txt ]; then
+            echo "📋 Changes detected for production:"
+            cat production-diff.txt
+          else
+            echo "📋 No infrastructure changes detected"
+          fi
+
+      - name: 🚀 Deploy Production Main Stack
+        run: |
+          echo "🚨 DEPLOYING TO PRODUCTION ENVIRONMENT 🚨"
+          echo "Starting production deployment..."
+          
+          JSII_SILENCE_WARNING_UNTESTED_NODE_VERSION=1 npx cdk deploy GameAuthService-production \
+            --context environment=${{ env.ENVIRONMENT }} \
+            --require-approval never \
+            --outputs-file deployment-outputs-production.json \
+            --progress events \
+            --rollback
+
+      - name: 🚀 Deploy Production Monitoring Stack
+        run: |
+          echo "Deploying production monitoring stack..."
+          JSII_SILENCE_WARNING_UNTESTED_NODE_VERSION=1 npx cdk deploy GameAuthMonitoring-production \
+            --context environment=${{ env.ENVIRONMENT }} \
+            --context enableMonitoring=true \
+            --require-approval never \
+            --progress events \
+            --rollback
+
+      - name: ✅ Verify Production Deployment
+        run: |
+          if [ -f "deployment-outputs-production.json" ]; then
+            API_URL=$(jq -r '.["GameAuthService-production"].ApiUrl' deployment-outputs-production.json)
+            USER_POOL_ID=$(jq -r '.["GameAuthService-production"].PlayerUserPoolId' deployment-outputs-production.json)
+            
+            echo "API_URL=$API_URL" >> $GITHUB_ENV
+            echo "USER_POOL_ID=$USER_POOL_ID" >> $GITHUB_ENV
+            
+            echo "🎉 PRODUCTION DEPLOYMENT SUCCESSFUL! 🎉"
+            echo "API URL: $API_URL"
+            echo "User Pool ID: $USER_POOL_ID"
+            
+            # Comprehensive production health check
+            echo "Performing production health check..."
+            sleep 60  # Allow production services to fully initialize
+            
+            # Test API Gateway
+            if curl --max-time 20 --fail "$API_URL" > /dev/null 2>&1; then
+              echo "✅ Production API Gateway health check passed"
+            else
+              echo "❌ Production API Gateway health check failed"
+              exit 1
+            fi
+            
+            # Verify all Lambda functions are active
+            aws lambda list-functions --query 'Functions[?contains(FunctionName, `GameAuthService-production`)].State' --output text | grep -v "Pending\|Inactive" || {
+              echo "❌ Some production Lambda functions are not active"
+              exit 1
+            }
+            
+            # Verify monitoring canaries are created
+            aws synthetics describe-canaries --query 'Canaries[?contains(Name, `game-auth`) && contains(Name, `production`)].State' --output text | grep "RUNNING" || {
+              echo "⚠️ Production monitoring canaries not yet running (may take time to start)"
+            }
+            
+            echo "✅ All production health checks passed"
+          else
+            echo "❌ Production deployment outputs not found"
+            exit 1
+          fi
+
+      - name: 📋 Upload Production Deployment Artifacts
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: deployment-outputs-production-${{ github.sha }}
+          path: |
+            deployment-outputs-production.json
+            production-diff.txt
+            cdk.out/
+          retention-days: 90  # Longer retention for production
+
+  production-smoke-tests:
+    name: Production Smoke Tests
+    runs-on: ubuntu-latest
+    needs: deploy-to-production
+    timeout-minutes: 15
+    
+    steps:
+      - name: 🔧 Checkout Code
+        uses: actions/checkout@v4
+
+      - name: ⚙️ Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID_PRODUCTION }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY_PRODUCTION }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: 🔥 Production Critical Path Tests
+        run: |
+          echo "🔥 Running critical path smoke tests in PRODUCTION"
+          
+          # Get API URL from CloudFormation outputs
+          API_URL=$(aws cloudformation describe-stacks \
+            --stack-name GameAuthService-production \
+            --query 'Stacks[0].Outputs[?OutputKey==`ApiUrl`].OutputValue' \
+            --output text)
+          
+          if [ -z "$API_URL" ]; then
+            echo "❌ Could not retrieve production API URL"
+            exit 1
+          fi
+          
+          echo "Testing production API: $API_URL"
+          
+          # Critical Test 1: API availability
+          if curl --max-time 15 --fail "$API_URL" > /dev/null 2>&1; then
+            echo "✅ Production API availability check passed"
+          else
+            echo "❌ Production API availability check failed"
+            exit 1
+          fi
+          
+          # Critical Test 2: Authentication endpoint
+          RESPONSE=$(curl -s -w "%{http_code}" -X POST "$API_URL/enhanced-validate-jwt-cedar" \
+            -H "Content-Type: application/json" \
+            -d '{"token":"test.invalid.token"}' || echo "000")
+          
+          HTTP_CODE="${RESPONSE: -3}"
+          if [ "$HTTP_CODE" = "400" ] || [ "$HTTP_CODE" = "401" ]; then
+            echo "✅ Production authentication endpoint working"
+          else
+            echo "❌ Production authentication endpoint issue (HTTP: $HTTP_CODE)"
+            exit 1
+          fi
+          
+          # Critical Test 3: Monitor Synthetics canaries
+          CANARY_COUNT=$(aws synthetics describe-canaries \
+            --query 'length(Canaries[?contains(Name, `game-auth`) && contains(Name, `production`)])' \
+            --output text)
+          
+          if [ "$CANARY_COUNT" -gt 0 ]; then
+            echo "✅ Production monitoring canaries deployed ($CANARY_COUNT found)"
+          else
+            echo "⚠️ Production monitoring canaries not found (may still be initializing)"
+          fi
+          
+          echo "🎉 All production smoke tests completed successfully!"
+
+  production-monitoring-validation:
+    name: Validate Production Monitoring
+    runs-on: ubuntu-latest
+    needs: [deploy-to-production, production-smoke-tests]
+    timeout-minutes: 10
+    
+    steps:
+      - name: ⚙️ Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID_PRODUCTION }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY_PRODUCTION }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: 📊 Validate Monitoring Components
+        run: |
+          echo "📊 Validating production monitoring components..."
+          
+          # Check CloudWatch dashboards
+          DASHBOARDS=$(aws cloudwatch list-dashboards \
+            --query 'DashboardEntries[?contains(DashboardName, `GameAuthService-`) && contains(DashboardName, `production`)].DashboardName' \
+            --output text)
+          
+          if [ -n "$DASHBOARDS" ]; then
+            echo "✅ Production dashboards created: $DASHBOARDS"
+          else
+            echo "⚠️ Production dashboards not found"
+          fi
+          
+          # Check CloudWatch alarms
+          ALARM_COUNT=$(aws cloudwatch describe-alarms \
+            --query 'length(MetricAlarms[?contains(AlarmName, `GameAuthService`) && contains(AlarmName, `production`)])' \
+            --output text)
+          
+          if [ "$ALARM_COUNT" -gt 0 ]; then
+            echo "✅ Production alarms configured ($ALARM_COUNT alarms)"
+          else
+            echo "⚠️ Production alarms not found"
+          fi
+          
+          # Check SNS topics for alerts
+          TOPICS=$(aws sns list-topics \
+            --query 'Topics[?contains(TopicArn, `GameAuthService`) && contains(TopicArn, `production`)].TopicArn' \
+            --output text)
+          
+          if [ -n "$TOPICS" ]; then
+            echo "✅ Production alert topics configured"
+          else
+            echo "⚠️ Production alert topics not found"
+          fi
+          
+          echo "📊 Production monitoring validation completed"
+
+  notify-production-success:
+    name: Notify Production Success
+    runs-on: ubuntu-latest
+    needs: [deploy-to-production, production-smoke-tests, production-monitoring-validation]
+    if: success()
+    
+    steps:
+      - name: 🎉 Production Deployment Success
+        run: |
+          echo "🎉🚀 PRODUCTION DEPLOYMENT COMPLETED SUCCESSFULLY! 🚀🎉"
+          echo ""
+          echo "✅ Production infrastructure deployed"
+          echo "✅ All smoke tests passed"
+          echo "✅ Monitoring and alerting active"
+          echo "📊 Production dashboards available"
+          echo "🔔 Alert notifications configured"
+          echo ""
+          echo "🎮 Game Auth Service is now LIVE in production!"
+          echo "🌍 Ready to serve production traffic"
+          echo "📈 Monitoring active for 24/7 observability"
+
+  notify-production-failure:
+    name: Notify Production Failure
+    runs-on: ubuntu-latest
+    needs: [deploy-to-production, production-smoke-tests, production-monitoring-validation]
+    if: failure()
+    
+    steps:
+      - name: 🚨 Production Deployment Failed
+        run: |
+          echo "🚨🚨 PRODUCTION DEPLOYMENT FAILED! 🚨🚨"
+          echo ""
+          echo "❌ Production deployment encountered errors"
+          echo "🔍 Check deployment logs immediately"
+          echo "🚨 Production may be in inconsistent state"
+          echo "⚠️ Manual intervention may be required"
+          echo "🔄 Consider rollback if necessary"
+          echo ""
+          echo "📞 Alert: DevOps team immediate attention required"

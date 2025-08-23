@@ -1,0 +1,175 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuites name="Integration Tests" tests="67" failures="0" errors="0" time="15.899">
+  <testsuite name="Enhanced JWT-Cedar Authentication Flow" errors="0" failures="0" skipped="15" timestamp="2025-08-23T16:12:45" time="1.866" tests="15">
+    <testcase classname="Enhanced JWT-Cedar Authentication Flow 🔐 Authentication &amp; Token Generation should authenticate player and generate Cedar-enriched tokens" name="Enhanced JWT-Cedar Authentication Flow 🔐 Authentication &amp; Token Generation should authenticate player and generate Cedar-enriched tokens" time="0">
+      <skipped/>
+    </testcase>
+    <testcase classname="Enhanced JWT-Cedar Authentication Flow 🔐 Authentication &amp; Token Generation should authenticate premium player with enhanced permissions" name="Enhanced JWT-Cedar Authentication Flow 🔐 Authentication &amp; Token Generation should authenticate premium player with enhanced permissions" time="0">
+      <skipped/>
+    </testcase>
+    <testcase classname="Enhanced JWT-Cedar Authentication Flow 🔐 Authentication &amp; Token Generation should authenticate admin with administrative permissions" name="Enhanced JWT-Cedar Authentication Flow 🔐 Authentication &amp; Token Generation should authenticate admin with administrative permissions" time="0">
+      <skipped/>
+    </testcase>
+    <testcase classname="Enhanced JWT-Cedar Authentication Flow 🛡️ Enhanced JWT-Cedar Authorization should validate player token without specific action" name="Enhanced JWT-Cedar Authentication Flow 🛡️ Enhanced JWT-Cedar Authorization should validate player token without specific action" time="0">
+      <skipped/>
+    </testcase>
+    <testcase classname="Enhanced JWT-Cedar Authentication Flow 🛡️ Enhanced JWT-Cedar Authorization should authorize collectResources action for player" name="Enhanced JWT-Cedar Authentication Flow 🛡️ Enhanced JWT-Cedar Authorization should authorize collectResources action for player" time="0">
+      <skipped/>
+    </testcase>
+    <testcase classname="Enhanced JWT-Cedar Authentication Flow 🛡️ Enhanced JWT-Cedar Authorization should authorize premium features for premium player" name="Enhanced JWT-Cedar Authentication Flow 🛡️ Enhanced JWT-Cedar Authorization should authorize premium features for premium player" time="0">
+      <skipped/>
+    </testcase>
+    <testcase classname="Enhanced JWT-Cedar Authentication Flow 🛡️ Enhanced JWT-Cedar Authorization should deny admin actions for regular player" name="Enhanced JWT-Cedar Authentication Flow 🛡️ Enhanced JWT-Cedar Authorization should deny admin actions for regular player" time="0">
+      <skipped/>
+    </testcase>
+    <testcase classname="Enhanced JWT-Cedar Authentication Flow 🛡️ Enhanced JWT-Cedar Authorization should authorize admin actions for admin user" name="Enhanced JWT-Cedar Authentication Flow 🛡️ Enhanced JWT-Cedar Authorization should authorize admin actions for admin user" time="0">
+      <skipped/>
+    </testcase>
+    <testcase classname="Enhanced JWT-Cedar Authentication Flow ⚡ Performance &amp; Reliability should maintain performance under concurrent load" name="Enhanced JWT-Cedar Authentication Flow ⚡ Performance &amp; Reliability should maintain performance under concurrent load" time="0">
+      <skipped/>
+    </testcase>
+    <testcase classname="Enhanced JWT-Cedar Authentication Flow ⚡ Performance &amp; Reliability should handle token refresh correctly" name="Enhanced JWT-Cedar Authentication Flow ⚡ Performance &amp; Reliability should handle token refresh correctly" time="0">
+      <skipped/>
+    </testcase>
+    <testcase classname="Enhanced JWT-Cedar Authentication Flow 🚨 Error Handling &amp; Security should reject invalid tokens" name="Enhanced JWT-Cedar Authentication Flow 🚨 Error Handling &amp; Security should reject invalid tokens" time="0">
+      <skipped/>
+    </testcase>
+    <testcase classname="Enhanced JWT-Cedar Authentication Flow 🚨 Error Handling &amp; Security should handle malformed requests gracefully" name="Enhanced JWT-Cedar Authentication Flow 🚨 Error Handling &amp; Security should handle malformed requests gracefully" time="0">
+      <skipped/>
+    </testcase>
+    <testcase classname="Enhanced JWT-Cedar Authentication Flow 🚨 Error Handling &amp; Security should properly revoke tokens" name="Enhanced JWT-Cedar Authentication Flow 🚨 Error Handling &amp; Security should properly revoke tokens" time="0">
+      <skipped/>
+    </testcase>
+    <testcase classname="Enhanced JWT-Cedar Authentication Flow 📊 System Health &amp; Monitoring should report comprehensive system health" name="Enhanced JWT-Cedar Authentication Flow 📊 System Health &amp; Monitoring should report comprehensive system health" time="0">
+      <skipped/>
+    </testcase>
+    <testcase classname="Enhanced JWT-Cedar Authentication Flow 📊 System Health &amp; Monitoring should meet performance benchmarks" name="Enhanced JWT-Cedar Authentication Flow 📊 System Health &amp; Monitoring should meet performance benchmarks" time="0">
+      <skipped/>
+    </testcase>
+  </testsuite>
+  <testsuite name="Complete Enhanced JWT-Cedar Authentication Flow" errors="0" failures="0" skipped="15" timestamp="2025-08-23T16:12:47" time="0.187" tests="15">
+    <testcase classname="Complete Enhanced JWT-Cedar Authentication Flow Step 1: Authentication and Token Analysis should authenticate user successfully" name="Complete Enhanced JWT-Cedar Authentication Flow Step 1: Authentication and Token Analysis should authenticate user successfully" time="0">
+      <skipped/>
+    </testcase>
+    <testcase classname="Complete Enhanced JWT-Cedar Authentication Flow Step 1: Authentication and Token Analysis should have Cedar-enriched claims in ID token" name="Complete Enhanced JWT-Cedar Authentication Flow Step 1: Authentication and Token Analysis should have Cedar-enriched claims in ID token" time="0">
+      <skipped/>
+    </testcase>
+    <testcase classname="Complete Enhanced JWT-Cedar Authentication Flow Step 2: Enhanced JWT-Cedar Validation Tests should perform basic token validation without action" name="Complete Enhanced JWT-Cedar Authentication Flow Step 2: Enhanced JWT-Cedar Validation Tests should perform basic token validation without action" time="0">
+      <skipped/>
+    </testcase>
+    <testcase classname="Complete Enhanced JWT-Cedar Authentication Flow Step 2: Enhanced JWT-Cedar Validation Tests should authorize collectResources action for player" name="Complete Enhanced JWT-Cedar Authentication Flow Step 2: Enhanced JWT-Cedar Validation Tests should authorize collectResources action for player" time="0">
+      <skipped/>
+    </testcase>
+    <testcase classname="Complete Enhanced JWT-Cedar Authentication Flow Step 2: Enhanced JWT-Cedar Validation Tests should authorize viewProfile action for own profile" name="Complete Enhanced JWT-Cedar Authentication Flow Step 2: Enhanced JWT-Cedar Validation Tests should authorize viewProfile action for own profile" time="0">
+      <skipped/>
+    </testcase>
+    <testcase classname="Complete Enhanced JWT-Cedar Authentication Flow Step 2: Enhanced JWT-Cedar Validation Tests should deny alliance actions for non-alliance member" name="Complete Enhanced JWT-Cedar Authentication Flow Step 2: Enhanced JWT-Cedar Validation Tests should deny alliance actions for non-alliance member" time="0">
+      <skipped/>
+    </testcase>
+    <testcase classname="Complete Enhanced JWT-Cedar Authentication Flow Step 2: Enhanced JWT-Cedar Validation Tests should deny admin actions for player user" name="Complete Enhanced JWT-Cedar Authentication Flow Step 2: Enhanced JWT-Cedar Validation Tests should deny admin actions for player user" time="0">
+      <skipped/>
+    </testcase>
+    <testcase classname="Complete Enhanced JWT-Cedar Authentication Flow Step 3: Database and Infrastructure Verification should have Cedar policies loaded in database" name="Complete Enhanced JWT-Cedar Authentication Flow Step 3: Database and Infrastructure Verification should have Cedar policies loaded in database" time="0">
+      <skipped/>
+    </testcase>
+    <testcase classname="Complete Enhanced JWT-Cedar Authentication Flow Step 3: Database and Infrastructure Verification should have user entity created in Cedar entity store" name="Complete Enhanced JWT-Cedar Authentication Flow Step 3: Database and Infrastructure Verification should have user entity created in Cedar entity store" time="0">
+      <skipped/>
+    </testcase>
+    <testcase classname="Complete Enhanced JWT-Cedar Authentication Flow Step 3: Database and Infrastructure Verification should track sessions in DynamoDB" name="Complete Enhanced JWT-Cedar Authentication Flow Step 3: Database and Infrastructure Verification should track sessions in DynamoDB" time="0">
+      <skipped/>
+    </testcase>
+    <testcase classname="Complete Enhanced JWT-Cedar Authentication Flow Step 4: Performance and Reliability should maintain consistent performance under load" name="Complete Enhanced JWT-Cedar Authentication Flow Step 4: Performance and Reliability should maintain consistent performance under load" time="0">
+      <skipped/>
+    </testcase>
+    <testcase classname="Complete Enhanced JWT-Cedar Authentication Flow Step 4: Performance and Reliability should handle concurrent requests without errors" name="Complete Enhanced JWT-Cedar Authentication Flow Step 4: Performance and Reliability should handle concurrent requests without errors" time="0">
+      <skipped/>
+    </testcase>
+    <testcase classname="Complete Enhanced JWT-Cedar Authentication Flow Step 5: Error Handling and Edge Cases should reject invalid tokens" name="Complete Enhanced JWT-Cedar Authentication Flow Step 5: Error Handling and Edge Cases should reject invalid tokens" time="0">
+      <skipped/>
+    </testcase>
+    <testcase classname="Complete Enhanced JWT-Cedar Authentication Flow Step 5: Error Handling and Edge Cases should handle expired tokens gracefully" name="Complete Enhanced JWT-Cedar Authentication Flow Step 5: Error Handling and Edge Cases should handle expired tokens gracefully" time="0">
+      <skipped/>
+    </testcase>
+    <testcase classname="Complete Enhanced JWT-Cedar Authentication Flow Step 5: Error Handling and Edge Cases should handle missing action/resource gracefully" name="Complete Enhanced JWT-Cedar Authentication Flow Step 5: Error Handling and Edge Cases should handle missing action/resource gracefully" time="0">
+      <skipped/>
+    </testcase>
+  </testsuite>
+  <testsuite name="JWT Management System Integration Tests" errors="0" failures="0" skipped="0" timestamp="2025-08-23T16:12:47" time="13.606" tests="18">
+    <testcase classname="JWT Management System Integration Tests Token Generation should generate valid JWT tokens for authenticated user" name="JWT Management System Integration Tests Token Generation should generate valid JWT tokens for authenticated user" time="1.048">
+    </testcase>
+    <testcase classname="JWT Management System Integration Tests Token Generation should reject invalid credentials" name="JWT Management System Integration Tests Token Generation should reject invalid credentials" time="0.67">
+    </testcase>
+    <testcase classname="JWT Management System Integration Tests Token Generation should reject malformed requests" name="JWT Management System Integration Tests Token Generation should reject malformed requests" time="0.579">
+    </testcase>
+    <testcase classname="JWT Management System Integration Tests Token Validation should validate legitimate tokens successfully" name="JWT Management System Integration Tests Token Validation should validate legitimate tokens successfully" time="0.558">
+    </testcase>
+    <testcase classname="JWT Management System Integration Tests Token Validation should reject invalid tokens" name="JWT Management System Integration Tests Token Validation should reject invalid tokens" time="0.54">
+    </testcase>
+    <testcase classname="JWT Management System Integration Tests Token Validation should validate token without role requirements" name="JWT Management System Integration Tests Token Validation should validate token without role requirements" time="0.69">
+    </testcase>
+    <testcase classname="JWT Management System Integration Tests Token Validation should handle role-based validation" name="JWT Management System Integration Tests Token Validation should handle role-based validation" time="0.568">
+    </testcase>
+    <testcase classname="JWT Management System Integration Tests Token Revocation should revoke tokens by token value" name="JWT Management System Integration Tests Token Revocation should revoke tokens by token value" time="0.733">
+    </testcase>
+    <testcase classname="JWT Management System Integration Tests Token Revocation should revoke tokens by user ID" name="JWT Management System Integration Tests Token Revocation should revoke tokens by user ID" time="0.538">
+    </testcase>
+    <testcase classname="JWT Management System Integration Tests Token Revocation should handle revocation of non-existent tokens gracefully" name="JWT Management System Integration Tests Token Revocation should handle revocation of non-existent tokens gracefully" time="0.539">
+    </testcase>
+    <testcase classname="JWT Management System Integration Tests Token Refresh should refresh expired tokens" name="JWT Management System Integration Tests Token Refresh should refresh expired tokens" time="0.829">
+    </testcase>
+    <testcase classname="JWT Management System Integration Tests Token Refresh should fail refresh with invalid refresh token" name="JWT Management System Integration Tests Token Refresh should fail refresh with invalid refresh token" time="0.54">
+    </testcase>
+    <testcase classname="JWT Management System Integration Tests Performance Tests token generation should complete within acceptable time" name="JWT Management System Integration Tests Performance Tests token generation should complete within acceptable time" time="0.688">
+    </testcase>
+    <testcase classname="JWT Management System Integration Tests Performance Tests token validation should meet latency requirements" name="JWT Management System Integration Tests Performance Tests token validation should meet latency requirements" time="0.726">
+    </testcase>
+    <testcase classname="JWT Management System Integration Tests Performance Tests should handle concurrent token operations" name="JWT Management System Integration Tests Performance Tests should handle concurrent token operations" time="0.86">
+    </testcase>
+    <testcase classname="JWT Management System Integration Tests Security Tests should include proper security headers in responses" name="JWT Management System Integration Tests Security Tests should include proper security headers in responses" time="0.684">
+    </testcase>
+    <testcase classname="JWT Management System Integration Tests Security Tests should reject requests with invalid content type" name="JWT Management System Integration Tests Security Tests should reject requests with invalid content type" time="0.663">
+    </testcase>
+    <testcase classname="JWT Management System Integration Tests Security Tests generated tokens should have proper JWT structure and claims" name="JWT Management System Integration Tests Security Tests generated tokens should have proper JWT structure and claims" time="0.691">
+    </testcase>
+  </testsuite>
+  <testsuite name="JWT-Cedar Integration Tests" errors="0" failures="0" skipped="0" timestamp="2025-08-23T16:13:01" time="0.126" tests="19">
+    <testcase classname="JWT-Cedar Integration Tests JWT Token Generation and Validation should generate and validate basic player token" name="JWT-Cedar Integration Tests JWT Token Generation and Validation should generate and validate basic player token" time="0.002">
+    </testcase>
+    <testcase classname="JWT-Cedar Integration Tests JWT Token Generation and Validation should generate and validate alliance leader token" name="JWT-Cedar Integration Tests JWT Token Generation and Validation should generate and validate alliance leader token" time="0.001">
+    </testcase>
+    <testcase classname="JWT-Cedar Integration Tests JWT Token Generation and Validation should generate and validate admin token" name="JWT-Cedar Integration Tests JWT Token Generation and Validation should generate and validate admin token" time="0">
+    </testcase>
+    <testcase classname="JWT-Cedar Integration Tests JWT Token Generation and Validation should reject expired tokens" name="JWT-Cedar Integration Tests JWT Token Generation and Validation should reject expired tokens" time="0.001">
+    </testcase>
+    <testcase classname="JWT-Cedar Integration Tests Enhanced Validation (JWT + Cedar) should validate token without authorization when no action provided" name="JWT-Cedar Integration Tests Enhanced Validation (JWT + Cedar) should validate token without authorization when no action provided" time="0.001">
+    </testcase>
+    <testcase classname="JWT-Cedar Integration Tests Enhanced Validation (JWT + Cedar) should validate and authorize player viewing own profile" name="JWT-Cedar Integration Tests Enhanced Validation (JWT + Cedar) should validate and authorize player viewing own profile" time="0.001">
+    </testcase>
+    <testcase classname="JWT-Cedar Integration Tests Enhanced Validation (JWT + Cedar) should deny player viewing another player profile" name="JWT-Cedar Integration Tests Enhanced Validation (JWT + Cedar) should deny player viewing another player profile" time="0.001">
+    </testcase>
+    <testcase classname="JWT-Cedar Integration Tests Game Scenario Testing Player should be able to update their own profile" name="JWT-Cedar Integration Tests Game Scenario Testing Player should be able to update their own profile" time="0">
+    </testcase>
+    <testcase classname="JWT-Cedar Integration Tests Game Scenario Testing Alliance member should be able to view alliance information" name="JWT-Cedar Integration Tests Game Scenario Testing Alliance member should be able to view alliance information" time="0.001">
+    </testcase>
+    <testcase classname="JWT-Cedar Integration Tests Game Scenario Testing Alliance leader should be able to kick members" name="JWT-Cedar Integration Tests Game Scenario Testing Alliance leader should be able to kick members" time="0.001">
+    </testcase>
+    <testcase classname="JWT-Cedar Integration Tests Game Scenario Testing Player should be able to attack enemy within level range" name="JWT-Cedar Integration Tests Game Scenario Testing Player should be able to attack enemy within level range" time="0.001">
+    </testcase>
+    <testcase classname="JWT-Cedar Integration Tests Game Scenario Testing Player should not be able to attack enemy outside level range" name="JWT-Cedar Integration Tests Game Scenario Testing Player should not be able to attack enemy outside level range" time="0.001">
+    </testcase>
+    <testcase classname="JWT-Cedar Integration Tests Game Scenario Testing Admin should be able to ban users" name="JWT-Cedar Integration Tests Game Scenario Testing Admin should be able to ban users" time="0">
+    </testcase>
+    <testcase classname="JWT-Cedar Integration Tests Game Scenario Testing Regular player should not be able to ban users" name="JWT-Cedar Integration Tests Game Scenario Testing Regular player should not be able to ban users" time="0">
+    </testcase>
+    <testcase classname="JWT-Cedar Integration Tests Edge Cases and Error Handling should handle malformed JWT tokens" name="JWT-Cedar Integration Tests Edge Cases and Error Handling should handle malformed JWT tokens" time="0">
+    </testcase>
+    <testcase classname="JWT-Cedar Integration Tests Edge Cases and Error Handling should handle missing context gracefully" name="JWT-Cedar Integration Tests Edge Cases and Error Handling should handle missing context gracefully" time="0.001">
+    </testcase>
+    <testcase classname="JWT-Cedar Integration Tests Edge Cases and Error Handling should deny actions for inactive users" name="JWT-Cedar Integration Tests Edge Cases and Error Handling should deny actions for inactive users" time="0.001">
+    </testcase>
+    <testcase classname="JWT-Cedar Integration Tests Performance and Scalability should handle multiple concurrent authorization requests" name="JWT-Cedar Integration Tests Performance and Scalability should handle multiple concurrent authorization requests" time="0.029">
+    </testcase>
+    <testcase classname="JWT-Cedar Integration Tests Performance and Scalability should efficiently handle token validation without authorization" name="JWT-Cedar Integration Tests Performance and Scalability should efficiently handle token validation without authorization" time="0.052">
+    </testcase>
+  </testsuite>
+</testsuites>
