@@ -386,14 +386,9 @@ async function verifySmsCode(userId: string, code: string): Promise<{
  * Get count of recent SMS codes for rate limiting
  */
 async function getRecentSmsCount(userId: string, since: number): Promise<number> {
-  try {
-    // In production, this would use a GSI to query by userId and timestamp
-    // For now, return a simplified count
-    return 0;
-  } catch (error) {
-    console.error('Error getting recent SMS count:', error);
-    return 999; // Return high number to block on error
-  }
+  // In production, this would use a GSI to query by userId and timestamp
+  // For now, return a simplified count
+  return 0;
 }
 
 /**
