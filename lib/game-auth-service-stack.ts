@@ -9,6 +9,7 @@ import { NodejsFunction } from 'aws-cdk-lib/aws-lambda-nodejs';
 import { JwtManagementConstruct } from './constructs/jwt-management-construct';
 import { CedarAuthorizationConstruct } from './constructs/cedar-authorization-construct';
 import { UserEntityManagementConstruct } from './constructs/user-entity-management-construct';
+import { MfaManagementConstruct } from './constructs/mfa-management-construct';
 
 export interface GameAuthServiceStackProps extends cdk.StackProps {
   environment: string;
@@ -24,6 +25,7 @@ export class GameAuthServiceStack extends cdk.Stack {
   public readonly jwtManagement: JwtManagementConstruct;
   public readonly cedarAuthorization: CedarAuthorizationConstruct;
   public readonly userEntityManagement: UserEntityManagementConstruct;
+  public readonly mfaManagement: MfaManagementConstruct;
   
   private tokenValidationLambda!: NodejsFunction;
   private userRegistrationLambda!: NodejsFunction;
@@ -204,6 +206,15 @@ export class GameAuthServiceStack extends cdk.Stack {
       entityStore: this.cedarAuthorization.entityStore,
       playerUserPoolId: this.playerUserPool.userPoolId,
       adminUserPoolId: this.adminUserPool.userPoolId,
+      api: this.authApi
+    });
+
+    // MFA Management Construct
+    this.mfaManagement = new MfaManagementConstruct(this, 'MfaManagement', {
+      environment,
+      playerUserPool: this.playerUserPool,
+      adminUserPool: this.adminUserPool,
+      sessionsTable: this.sessionsTable,
       api: this.authApi
     });
 
